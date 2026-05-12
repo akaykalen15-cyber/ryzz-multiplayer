@@ -193,7 +193,7 @@ function processAdminCommand(socket, command) {
 }
 
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => {
+server.listen(PORT, '0.0.0.0', () => {
     console.log(`✅ RYZZ.io server running on port ${PORT}`);
     console.log(`👑 Admin username: ${ADMIN_NAME}`);
 });
