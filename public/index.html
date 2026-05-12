@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>RYZZ.io - Admin Arena</title>
+    <title>RYZZ.io - Multiplayer Arena</title>
     <style>
         * {
             margin: 0;
@@ -229,37 +229,44 @@
         }
     });
     
+    socket.on('currentOrbs', (serverOrbs) => {
+        orbs = serverOrbs;
+    });
+    
     socket.on('nameRejected', (msg) => {
         alert(msg);
         window.location.reload();
     });
     
-    socket.on('currentOrbs', (serverOrbs) => { orbs = serverOrbs; });
     socket.on('newPlayer', (playerData) => {
         players[playerData.id] = playerData;
         addChatMessage('System', `${playerData.username} joined!`, true);
     });
+    
     socket.on('playerMoved', (playerData) => {
         if (players[playerData.id]) {
             players[playerData.id].x = playerData.x;
             players[playerData.id].y = playerData.y;
         }
     });
+    
     socket.on('playerDisconnected', (playerId) => {
         if (players[playerId]) {
             addChatMessage('System', `${players[playerId].username} left`, true);
             delete players[playerId];
         }
     });
+    
     socket.on('leaderboardUpdate', (leaderboard) => {
         let html = '';
         for (let i = 0; i < leaderboard.length; i++) {
             const p = leaderboard[i];
             const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : '  ';
-            html += `<div>${medal} ${p.username}${p.isAdmin ? ' 👑' : ''} - ${p.score}</div>`;
+            html += `<div>${medal} ${p.username} - ${p.score}</div>`;
         }
         leaderboardList.innerHTML = html;
     });
+    
     socket.on('scoreUpdate', (data) => {
         if (players[data.id]) {
             players[data.id].score = data.score;
@@ -271,13 +278,16 @@
             if (myPlayer) myPlayer.radius = data.radius;
         }
     });
+    
     socket.on('orbCollected', (orbId) => {
         const index = orbs.findIndex(o => o.id === orbId);
         if (index !== -1) orbs.splice(index, 1);
     });
+    
     socket.on('chatMessage', (data) => {
         addChatMessage(data.username, data.message, data.isSystem, data.isAdmin);
     });
+    
     socket.on('adminConfirm', (msg) => addChatMessage('System', msg, true));
     socket.on('kicked', (msg) => { alert(msg); window.location.reload(); });
     
@@ -334,6 +344,8 @@
         updateCamera();
         ctx.fillStyle = '#0a0f1e';
         ctx.fillRect(0, 0, canvas.width, canvas.height);
+        
+        // Draw orbs
         for (const orb of orbs) {
             const screenX = orb.x - cameraX;
             const screenY = orb.y - cameraY;
@@ -345,6 +357,8 @@
                 ctx.fill();
             }
         }
+        
+        // Draw other players (all same color - no admin distinction)
         for (const id in players) {
             if (id === myId) continue;
             const p = players[id];
@@ -354,18 +368,20 @@
                 screenY + p.radius > 0 && screenY - p.radius < canvas.height) {
                 ctx.beginPath();
                 ctx.arc(screenX, screenY, p.radius, 0, Math.PI * 2);
-                ctx.fillStyle = p.isAdmin ? '#fbbf24' : '#ef4444';
+                ctx.fillStyle = '#ef4444';  // All players red
                 ctx.fill();
                 ctx.fillStyle = 'white';
                 ctx.font = '10px Arial';
                 ctx.fillText(p.username, screenX - 20, screenY - 15);
             }
         }
+        
+        // Draw my player (no crown)
         const myScreenX = myPlayer.x - cameraX;
         const myScreenY = myPlayer.y - cameraY;
         ctx.beginPath();
         ctx.arc(myScreenX, myScreenY, myPlayer.radius, 0, Math.PI * 2);
-        ctx.fillStyle = '#3b82f6';
+        ctx.fillStyle = '#3b82f6';  // You are blue
         ctx.fill();
         ctx.strokeStyle = '#ffffff';
         ctx.lineWidth = 3;
@@ -373,9 +389,6 @@
         ctx.fillStyle = '#ffffff';
         ctx.font = `bold ${Math.floor(myPlayer.radius * 0.6)}px Arial`;
         ctx.fillText(myPlayer.username, myScreenX - 18, myScreenY - 12);
-        ctx.fillStyle = '#ffffff';
-        ctx.font = `${Math.floor(myPlayer.radius * 0.8)}px Arial`;
-        ctx.fillText('👑', myScreenX - 10, myScreenY - 18);
     }
     
     function gameLoop() {
@@ -386,8 +399,6 @@
         }
         requestAnimationFrame(gameLoop);
     }
-    
-    setInterval(() => { if (orbs.length < 100) generateOrbs; }, 2000);
 </script>
 </body>
 </html>
