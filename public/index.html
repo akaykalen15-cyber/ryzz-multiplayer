@@ -54,6 +54,7 @@
             background: #111827;
             padding: 10px;
             border-radius: 12px;
+            position: relative;
         }
         canvas {
             border: 2px solid #1f2937;
@@ -92,6 +93,32 @@
             height: 12px;
             border-radius: 50%;
             margin-right: 4px;
+        }
+        #zoomControl {
+            background: #1f2937;
+            padding: 5px 12px;
+            border-radius: 8px;
+            color: white;
+            font-size: 12px;
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+        #zoomControl button {
+            background: #3b82f6;
+            border: none;
+            color: white;
+            padding: 2px 10px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        #zoomControl button:hover {
+            background: #2563eb;
+        }
+        #zoomLevel {
+            min-width: 45px;
+            text-align: center;
         }
         #chatContainer {
             margin-top: 10px;
@@ -155,6 +182,13 @@
                 <div><span class="orb-dot" style="background: #3b82f6;"></span> 50</div>
                 <div><span class="orb-dot" style="background: #a855f7;"></span> 100</div>
             </div>
+            <div id="zoomControl">
+                <span>🔍</span>
+                <button id="zoomOutBtn">-</button>
+                <span id="zoomLevel">100%</span>
+                <button id="zoomInBtn">+</button>
+                <button id="zoomResetBtn">Reset</button>
+            </div>
             <div id="leaderboard">
                 <h4>🏆 LEADERBOARD</h4>
                 <div id="leaderboardList"></div>
@@ -182,6 +216,13 @@
     let orbs = [];
     let currentScore = 0;
     
+    // ZOOM SETTINGS
+    let zoom = 1.0;
+    const MIN_ZOOM = 0.5;
+    const MAX_ZOOM = 2.0;
+    let canvasWidth = 1200;
+    let canvasHeight = 800;
+    
     const joinScreen = document.getElementById('joinScreen');
     const gameScreen = document.getElementById('gameScreen');
     const usernameInput = document.getElementById('usernameInput');
@@ -196,6 +237,51 @@
     const chatInput = document.getElementById('chatInput');
     const chatSend = document.getElementById('chatSend');
     const adminNameSpan = document.getElementById('adminName');
+    const zoomLevelSpan = document.getElementById('zoomLevel');
+    
+    function updateCanvasSize() {
+        canvas.width = canvasWidth * zoom;
+        canvas.height = canvasHeight * zoom;
+        canvas.style.width = `${canvasWidth * zoom}px`;
+        canvas.style.height = `${canvasHeight * zoom}px`;
+        zoomLevelSpan.innerText = `${Math.round(zoom * 100)}%`;
+    }
+    
+    function setZoom(newZoom) {
+        zoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, newZoom));
+        updateCanvasSize();
+        // Recalculate camera after zoom
+        if (myPlayer) {
+            updateCamera();
+            draw();
+        }
+    }
+    
+    function zoomIn() {
+        setZoom(zoom + 0.1);
+    }
+    
+    function zoomOut() {
+        setZoom(zoom - 0.1);
+    }
+    
+    function zoomReset() {
+        setZoom(1.0);
+    }
+    
+    // Mouse wheel zoom
+    canvas.addEventListener('wheel', (e) => {
+        e.preventDefault();
+        if (e.deltaY < 0) {
+            zoomIn();
+        } else {
+            zoomOut();
+        }
+    });
+    
+    document.getElementById('zoomInBtn').onclick = zoomIn;
+    document.getElementById('zoomOutBtn').onclick = zoomOut;
+    document.getElementById('zoomResetBtn').onclick = zoomReset;
     
     function addChatMessage(sender, message, isSystem = false, isAdmin = false) {
         const div = document.createElement('div');
@@ -325,8 +411,9 @@
         const scaleY = canvas.height / rect.height;
         let canvasX = (e.clientX - rect.left) * scaleX;
         let canvasY = (e.clientY - rect.top) * scaleY;
-        mouseX = canvasX + cameraX;
-        mouseY = canvasY + cameraY;
+        // Adjust for zoom when calculating world coordinates
+        mouseX = (canvasX / zoom) + cameraX;
+        mouseY = (canvasY / zoom) + cameraY;
         mouseX = Math.min(Math.max(mouseX, 0), 2400);
         mouseY = Math.min(Math.max(mouseY, 0), 1600);
     });
@@ -360,10 +447,13 @@
     
     function updateCamera() {
         if (!myPlayer) return;
-        cameraX = myPlayer.x - canvas.width / 2;
-        cameraY = myPlayer.y - canvas.height / 2;
-        cameraX = Math.min(Math.max(cameraX, 0), 2400 - canvas.width);
-        cameraY = Math.min(Math.max(cameraY, 0), 1600 - canvas.height);
+        // Camera follows player, accounting for zoom
+        const effectiveWidth = canvas.width / zoom;
+        const effectiveHeight = canvas.height / zoom;
+        cameraX = myPlayer.x - effectiveWidth / 2;
+        cameraY = myPlayer.y - effectiveHeight / 2;
+        cameraX = Math.min(Math.max(cameraX, 0), 2400 - effectiveWidth);
+        cameraY = Math.min(Math.max(cameraY, 0), 1600 - effectiveHeight);
     }
     
     function draw() {
@@ -372,19 +462,19 @@
         ctx.fillStyle = '#0a0f1e';
         ctx.fillRect(0, 0, canvas.width, canvas.height);
         
-        // Draw orbs with colors
+        // Draw orbs
         for (const orb of orbs) {
-            const screenX = orb.x - cameraX;
-            const screenY = orb.y - cameraY;
-            if (screenX + orb.radius > 0 && screenX - orb.radius < canvas.width &&
-                screenY + orb.radius > 0 && screenY - orb.radius < canvas.height) {
+            const screenX = (orb.x - cameraX) * zoom;
+            const screenY = (orb.y - cameraY) * zoom;
+            const radius = orb.radius * zoom;
+            if (screenX + radius > 0 && screenX - radius < canvas.width &&
+                screenY + radius > 0 && screenY - radius < canvas.height) {
                 ctx.beginPath();
-                ctx.arc(screenX, screenY, orb.radius, 0, Math.PI * 2);
+                ctx.arc(screenX, screenY, radius, 0, Math.PI * 2);
                 ctx.fillStyle = orb.color || '#fbbf24';
                 ctx.fill();
-                // Add a subtle glow for rare orbs
                 if (orb.value >= 50) {
-                    ctx.shadowBlur = 8;
+                    ctx.shadowBlur = 8 * zoom;
                     ctx.shadowColor = orb.color;
                     ctx.fill();
                     ctx.shadowBlur = 0;
@@ -392,37 +482,39 @@
             }
         }
         
-        // Draw other players (all red)
+        // Draw other players
         for (const id in players) {
             if (id === myId) continue;
             const p = players[id];
-            const screenX = p.x - cameraX;
-            const screenY = p.y - cameraY;
-            if (screenX + p.radius > 0 && screenX - p.radius < canvas.width &&
-                screenY + p.radius > 0 && screenY - p.radius < canvas.height) {
+            const screenX = (p.x - cameraX) * zoom;
+            const screenY = (p.y - cameraY) * zoom;
+            const radius = p.radius * zoom;
+            if (screenX + radius > 0 && screenX - radius < canvas.width &&
+                screenY + radius > 0 && screenY - radius < canvas.height) {
                 ctx.beginPath();
-                ctx.arc(screenX, screenY, p.radius, 0, Math.PI * 2);
+                ctx.arc(screenX, screenY, radius, 0, Math.PI * 2);
                 ctx.fillStyle = '#ef4444';
                 ctx.fill();
                 ctx.fillStyle = 'white';
-                ctx.font = '10px Arial';
-                ctx.fillText(p.username, screenX - 20, screenY - 15);
+                ctx.font = `${Math.max(10, 10 * zoom)}px Arial`;
+                ctx.fillText(p.username, screenX - (20 * zoom), screenY - (15 * zoom));
             }
         }
         
-        // Draw my player (blue)
-        const myScreenX = myPlayer.x - cameraX;
-        const myScreenY = myPlayer.y - cameraY;
+        // Draw my player
+        const myScreenX = (myPlayer.x - cameraX) * zoom;
+        const myScreenY = (myPlayer.y - cameraY) * zoom;
+        const myRadius = myPlayer.radius * zoom;
         ctx.beginPath();
-        ctx.arc(myScreenX, myScreenY, myPlayer.radius, 0, Math.PI * 2);
+        ctx.arc(myScreenX, myScreenY, myRadius, 0, Math.PI * 2);
         ctx.fillStyle = '#3b82f6';
         ctx.fill();
         ctx.strokeStyle = '#ffffff';
-        ctx.lineWidth = 3;
+        ctx.lineWidth = 3 * zoom;
         ctx.stroke();
         ctx.fillStyle = '#ffffff';
-        ctx.font = `bold ${Math.floor(myPlayer.radius * 0.6)}px Arial`;
-        ctx.fillText(myPlayer.username, myScreenX - 18, myScreenY - 12);
+        ctx.font = `bold ${Math.max(12, myRadius * 0.6)}px Arial`;
+        ctx.fillText(myPlayer.username, myScreenX - (18 * zoom), myScreenY - (12 * zoom));
     }
     
     function gameLoop() {
@@ -433,6 +525,9 @@
         }
         requestAnimationFrame(gameLoop);
     }
+    
+    // Initialize canvas size
+    updateCanvasSize();
 </script>
 </body>
 </html>
