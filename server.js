@@ -7,7 +7,6 @@ const app = express();
 const server = http.createServer(app);
 const io = socketIO(server);
 
-// 👑 ONLY YOU know these!
 const ADMIN_NAME = 'RYZZ';
 const ADMIN_PASSWORD = 'ryzzking2024';
 
@@ -20,25 +19,20 @@ const MAP_HEIGHT = 1600;
 
 let orbs = [];
 
-// Orb types with colors and values
 const orbTypes = [
-    { color: '#fbbf24', value: 10, name: 'yellow', weight: 50 },   // 50% chance
-    { color: '#22c55e', value: 25, name: 'green', weight: 25 },     // 25% chance
-    { color: '#3b82f6', value: 50, name: 'blue', weight: 15 },       // 15% chance
-    { color: '#a855f7', value: 100, name: 'purple', weight: 10 }     // 10% chance
+    { color: '#fbbf24', value: 10, name: 'yellow', weight: 50 },
+    { color: '#22c55e', value: 25, name: 'green', weight: 25 },
+    { color: '#3b82f6', value: 50, name: 'blue', weight: 15 },
+    { color: '#a855f7', value: 100, name: 'purple', weight: 10 }
 ];
 
-// Weighted random selection
 function getRandomOrbType() {
     const totalWeight = orbTypes.reduce((sum, type) => sum + type.weight, 0);
     let random = Math.random() * totalWeight;
     let accumulated = 0;
-    
     for (const type of orbTypes) {
         accumulated += type.weight;
-        if (random <= accumulated) {
-            return type;
-        }
+        if (random <= accumulated) return type;
     }
     return orbTypes[0];
 }
@@ -58,16 +52,15 @@ function generateOrbs(count) {
     }
 }
 
-// Initial orbs
-generateOrbs(100);
+generateOrbs(150);
 
-// Respawn orbs over time
 setInterval(() => {
-    if (orbs.length < 80) {
-        generateOrbs(15);
-        console.log(`Generated new orbs, total: ${orbs.length}`);
+    if (orbs.length < 100) {
+        generateOrbs(25);
+    } else {
+        generateOrbs(5);
     }
-}, 3000);
+}, 2000);
 
 io.on('connection', (socket) => {
     console.log('Player connected:', socket.id);
@@ -76,7 +69,6 @@ io.on('connection', (socket) => {
         const username = data.username;
         const password = data.password || '';
         
-        // Check if this is the REAL admin
         let isAdmin = (username === ADMIN_NAME && password === ADMIN_PASSWORD);
         
         if (username === ADMIN_NAME && !isAdmin) {
@@ -84,7 +76,6 @@ io.on('connection', (socket) => {
             return;
         }
         
-        // Check for duplicate usernames
         let nameTaken = false;
         for (let id in players) {
             if (players[id].username === username) {
@@ -118,7 +109,7 @@ io.on('connection', (socket) => {
             socket.emit('adminConfirm', '👑 You are ADMIN! Type /help for commands');
         }
         
-        console.log(`${username} joined${isAdmin ? ' as ADMIN' : ''}`);
+        console.log(`${username} joined${isAdmin ? ' as ADMIN' : ''}, orbs: ${orbs.length}`);
     });
 
     socket.on('playerMovement', (data) => {
@@ -149,12 +140,62 @@ io.on('connection', (socket) => {
             });
             io.emit('orbCollected', orbId);
             
-            // Notify about points earned
             io.emit('chatMessage', {
                 username: 'System',
                 message: `${players[socket.id].username} earned +${points} points!`,
                 isSystem: true
             });
+        }
+    });
+
+    // 🍽️ PLAYER EATING LOGIC
+    socket.on('eatPlayer', (targetId) => {
+        if (!players[socket.id] || !players[targetId]) return;
+        if (socket.id === targetId) return;
+        
+        const eater = players[socket.id];
+        const target = players[targetId];
+        
+        // Don't eat admins if not admin
+        if (target.isAdmin && !eater.isAdmin) return;
+        
+        // Check if eater is bigger (radius comparison)
+        const eaterSize = eater.radius;
+        const targetSize = target.radius;
+        
+        // You need to be at least 10% bigger to eat someone
+        if (eaterSize > targetSize * 1.1) {
+            // EAT! Give points to eater
+            const pointsGained = Math.floor(target.score / 2) + 50;
+            eater.score += pointsGained;
+            eater.radius = Math.min(80, 20 + Math.floor(eater.score / 50));
+            
+            // Announce the kill
+            io.emit('chatMessage', {
+                username: 'System',
+                message: `🍽️ ${eater.username} ate ${target.username}! +${pointsGained} points`,
+                isSystem: true
+            });
+            
+            // Respawn target at random location with reduced score
+            target.score = Math.floor(target.score / 3);
+            target.radius = Math.max(20, 20 + Math.floor(target.score / 50));
+            target.x = Math.random() * MAP_WIDTH;
+            target.y = Math.random() * MAP_HEIGHT;
+            
+            // Update everyone
+            updateLeaderboard();
+            io.emit('scoreUpdate', {
+                id: socket.id,
+                score: eater.score,
+                radius: eater.radius
+            });
+            io.emit('scoreUpdate', {
+                id: targetId,
+                score: target.score,
+                radius: target.radius
+            });
+            io.emit('playerMoved', target);
         }
     });
 
