@@ -9,7 +9,7 @@ const io = socketIO(server);
 
 // 👑 ONLY YOU know these!
 const ADMIN_NAME = 'RYZZ';
-const ADMIN_PASSWORD = 'ryzzking2024';  // 🔒 Change this to your own secret!
+const ADMIN_PASSWORD = 'ryzzking2024';
 
 app.use(express.static(path.join(__dirname, 'public')));
 
@@ -20,23 +20,52 @@ const MAP_HEIGHT = 1600;
 
 let orbs = [];
 
+// Orb types with colors and values
+const orbTypes = [
+    { color: '#fbbf24', value: 10, name: 'yellow', weight: 50 },   // 50% chance
+    { color: '#22c55e', value: 25, name: 'green', weight: 25 },     // 25% chance
+    { color: '#3b82f6', value: 50, name: 'blue', weight: 15 },       // 15% chance
+    { color: '#a855f7', value: 100, name: 'purple', weight: 10 }     // 10% chance
+];
+
+// Weighted random selection
+function getRandomOrbType() {
+    const totalWeight = orbTypes.reduce((sum, type) => sum + type.weight, 0);
+    let random = Math.random() * totalWeight;
+    let accumulated = 0;
+    
+    for (const type of orbTypes) {
+        accumulated += type.weight;
+        if (random <= accumulated) {
+            return type;
+        }
+    }
+    return orbTypes[0];
+}
+
 function generateOrbs(count) {
     for (let i = 0; i < count; i++) {
+        const orbType = getRandomOrbType();
         orbs.push({
             id: Math.random().toString(36).substr(2, 8),
             x: Math.random() * MAP_WIDTH,
             y: Math.random() * MAP_HEIGHT,
             radius: 6,
-            value: 10
+            value: orbType.value,
+            color: orbType.color,
+            type: orbType.name
         });
     }
 }
 
-generateOrbs(80);
+// Initial orbs
+generateOrbs(100);
 
+// Respawn orbs over time
 setInterval(() => {
-    if (orbs.length < 60) {
-        generateOrbs(10);
+    if (orbs.length < 80) {
+        generateOrbs(15);
+        console.log(`Generated new orbs, total: ${orbs.length}`);
     }
 }, 3000);
 
@@ -47,10 +76,9 @@ io.on('connection', (socket) => {
         const username = data.username;
         const password = data.password || '';
         
-        // 🔒 Check if this is the REAL admin (name AND password)
+        // Check if this is the REAL admin
         let isAdmin = (username === ADMIN_NAME && password === ADMIN_PASSWORD);
         
-        // If someone tries to use admin name but wrong password
         if (username === ADMIN_NAME && !isAdmin) {
             socket.emit('nameRejected', 'Invalid admin credentials!');
             return;
@@ -106,9 +134,11 @@ io.on('connection', (socket) => {
         
         const orbIndex = orbs.findIndex(o => o.id === orbId);
         if (orbIndex !== -1) {
+            const orb = orbs[orbIndex];
+            const points = orb.value;
             orbs.splice(orbIndex, 1);
             
-            players[socket.id].score += 10;
+            players[socket.id].score += points;
             players[socket.id].radius = Math.min(80, 20 + Math.floor(players[socket.id].score / 50));
             
             updateLeaderboard();
@@ -118,6 +148,13 @@ io.on('connection', (socket) => {
                 radius: players[socket.id].radius
             });
             io.emit('orbCollected', orbId);
+            
+            // Notify about points earned
+            io.emit('chatMessage', {
+                username: 'System',
+                message: `${players[socket.id].username} earned +${points} points!`,
+                isSystem: true
+            });
         }
     });
 
@@ -210,7 +247,7 @@ function processAdminCommand(socket, command) {
             socket.emit('chatMessage', { username: 'System', message: `Online: ${list.join(', ')}`, isSystem: true });
             break;
         case '/orbs':
-            socket.emit('chatMessage', { username: 'System', message: `${orbs.length} orbs on the map`, isSystem: true });
+            socket.emit('chatMessage', { username: 'System', message: `${orbs.length} orbs on map | 🟡10 🟢25 🔵50 🟣100`, isSystem: true });
             break;
         default:
             socket.emit('chatMessage', { username: 'System', message: `Unknown command: ${cmd}. Type /help`, isSystem: true });
