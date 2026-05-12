@@ -347,7 +347,7 @@
                 myPlayer = players[id];
                 if (myPlayer.isAdmin) {
                     addChatMessage('System', 'You are ADMIN! Type /help for commands', true);
-                    adminNameSpan.innerHTML = myPlayer.username + ' 👑';
+                    adminNameSpan.innerHTML = myPlayer.username;
                 } else {
                     adminNameSpan.innerHTML = 'None';
                 }
@@ -457,6 +457,44 @@
         }
     }
     
+    // 🍽️ PLAYER EATING COLLISION
+    function checkPlayerCollisions() {
+        if (!myPlayer) return;
+        
+        for (const id in players) {
+            if (id === myId) continue;
+            const other = players[id];
+            const dist = Math.hypot(myPlayer.x - other.x, myPlayer.y - other.y);
+            const combinedRadius = myPlayer.radius + other.radius;
+            
+            if (dist < combinedRadius) {
+                const sizeRatio = myPlayer.radius / other.radius;
+                
+                if (sizeRatio > 1.15 && !myPlayer.godMode) {
+                    // I eat the other player
+                    socket.emit('eatPlayer', id);
+                    addChatMessage('System', `🍽️ You ate ${other.username}!`, true);
+                } else if (sizeRatio < 0.85 && !myPlayer.godMode) {
+                    // Other player eats me
+                    socket.emit('eatPlayer', myId);
+                    addChatMessage('System', `💀 You were eaten by ${other.username}!`, true);
+                    // Respawn at random location
+                    myPlayer.x = Math.random() * 2400;
+                    myPlayer.y = Math.random() * 1600;
+                    socket.emit('playerMovement', { x: myPlayer.x, y: myPlayer.y });
+                } else {
+                    // Similar size - bounce apart
+                    const angle = Math.atan2(myPlayer.y - other.y, myPlayer.x - other.x);
+                    const push = 8;
+                    myPlayer.x += Math.cos(angle) * push;
+                    myPlayer.y += Math.sin(angle) * push;
+                    other.x -= Math.cos(angle) * push;
+                    other.y -= Math.sin(angle) * push;
+                }
+            }
+        }
+    }
+    
     function updateCamera() {
         if (!myPlayer) return;
         const effectiveWidth = canvas.width / zoom;
@@ -474,6 +512,7 @@
         ctx.fillStyle = '#0a0f1e';
         ctx.fillRect(0, 0, canvas.width, canvas.height);
         
+        // Draw orbs
         for (const orb of orbs) {
             const screenX = (orb.x - cameraX) * zoom;
             const screenY = (orb.y - cameraY) * zoom;
@@ -493,6 +532,7 @@
             }
         }
         
+        // Draw other players
         for (const id in players) {
             if (id === myId) continue;
             const p = players[id];
@@ -505,12 +545,20 @@
                 ctx.arc(screenX, screenY, radius, 0, Math.PI * 2);
                 ctx.fillStyle = '#ef4444';
                 ctx.fill();
+                // Add size difference indicator (glow for bigger players)
+                if (p.radius > myPlayer.radius * 1.2) {
+                    ctx.shadowBlur = 10 * zoom;
+                    ctx.shadowColor = '#ff0000';
+                    ctx.fill();
+                    ctx.shadowBlur = 0;
+                }
                 ctx.fillStyle = 'white';
                 ctx.font = `${Math.max(10, 10 * zoom)}px Arial`;
                 ctx.fillText(p.username, screenX - (20 * zoom), screenY - (15 * zoom));
             }
         }
         
+        // Draw my player
         const myScreenX = (myPlayer.x - cameraX) * zoom;
         const myScreenY = (myPlayer.y - cameraY) * zoom;
         const myRadius = myPlayer.radius * zoom;
@@ -524,12 +572,27 @@
         ctx.fillStyle = '#ffffff';
         ctx.font = `bold ${Math.max(12, myRadius * 0.6)}px Arial`;
         ctx.fillText(myPlayer.username, myScreenX - (18 * zoom), myScreenY - (12 * zoom));
+        
+        // Show size warning if someone is bigger nearby
+        for (const id in players) {
+            if (id === myId) continue;
+            const p = players[id];
+            if (p.radius > myPlayer.radius * 1.3) {
+                const dist = Math.hypot(myPlayer.x - p.x, myPlayer.y - p.y);
+                if (dist < 300) {
+                    ctx.fillStyle = '#ef4444';
+                    ctx.font = `${14 * zoom}px Arial`;
+                    ctx.fillText('⚠️ DANGER!', myScreenX - (40 * zoom), myScreenY - (myRadius + 15 * zoom));
+                }
+            }
+        }
     }
     
     function gameLoop() {
         if (myPlayer) {
             movePlayer();
             checkOrbCollisions();
+            checkPlayerCollisions();
             draw();
         }
         requestAnimationFrame(gameLoop);
