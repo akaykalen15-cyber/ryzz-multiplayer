@@ -22,7 +22,6 @@
             padding: 30px;
             border-radius: 16px;
             text-align: center;
-            box-shadow: 0 0 30px rgba(0,0,0,0.5);
         }
         #joinScreen h1 {
             color: #fbbf24;
@@ -46,10 +45,6 @@
             border-radius: 8px;
             font-size: 16px;
             cursor: pointer;
-            font-weight: bold;
-        }
-        #joinScreen button:hover {
-            background: #2563eb;
         }
         #errorMsg {
             color: #ef4444;
@@ -198,45 +193,19 @@
     
     function sendChat() {
         const text = chatInput.value.trim();
-        if (text === "") return;
-        
-        // Send to server
+        if (!text) return;
         socket.emit('chatMessage', { message: text });
-        
-        // Clear input and refocus
-        chatInput.value = "";
+        chatInput.value = '';
         chatInput.focus();
     }
     
-    // Event listeners
     chatSend.onclick = sendChat;
-    chatInput.addEventListener('keypress', function(e) {
+    chatInput.addEventListener('keypress', (e) => {
         if (e.key === 'Enter') {
             e.preventDefault();
             sendChat();
         }
     });
-    
-    function generateOrbs(count) {
-        for (let i = 0; i < count; i++) {
-            orbs.push({ x: Math.random() * 2400, y: Math.random() * 1600, radius: 6, value: 10 });
-        }
-    }
-    
-    function checkOrbCollisions() {
-        if (!myPlayer) return;
-        for (let i = 0; i < orbs.length; i++) {
-            const orb = orbs[i];
-            const dist = Math.hypot(myPlayer.x - orb.x, myPlayer.y - orb.y);
-            if (dist < myPlayer.radius + orb.radius) {
-                orbs.splice(i, 1);
-                currentScore += orb.value;
-                scoreElement.innerText = currentScore;
-                socket.emit('collectOrb', orb.value);
-                i--;
-            }
-        }
-    }
     
     joinBtn.onclick = () => {
         const username = usernameInput.value.trim();
@@ -250,6 +219,7 @@
         requestAnimationFrame(gameLoop);
     };
     
+    // Server events
     socket.on('currentPlayers', (serverPlayers) => {
         players = serverPlayers;
         for (const id in players) {
@@ -257,8 +227,13 @@
                 myId = id;
                 myPlayer = players[id];
                 if (myPlayer.isAdmin) addChatMessage('System', '👑 You are ADMIN! Type /help', true);
+                document.getElementById('adminName').innerText = myPlayer.username;
             }
         }
+    });
+    
+    socket.on('currentOrbs', (serverOrbs) => {
+        orbs = serverOrbs;
     });
     
     socket.on('newPlayer', (playerData) => {
@@ -302,6 +277,11 @@
         }
     });
     
+    socket.on('orbCollected', (orbId) => {
+        const index = orbs.findIndex(o => o.id === orbId);
+        if (index !== -1) orbs.splice(index, 1);
+    });
+    
     socket.on('chatMessage', (data) => {
         addChatMessage(data.username, data.message, data.isSystem, data.isAdmin);
     });
@@ -309,6 +289,7 @@
     socket.on('adminConfirm', (msg) => addChatMessage('System', msg, true));
     socket.on('kicked', (msg) => { alert(msg); window.location.reload(); });
     
+    // Mouse and movement
     canvas.addEventListener('mousemove', (e) => {
         if (!myPlayer) return;
         const rect = canvas.getBoundingClientRect();
@@ -333,8 +314,20 @@
             myPlayer.y += (dy / distance) * speed;
         }
         myPlayer.x = Math.min(Math.max(myPlayer.x, myPlayer.radius + 5), 2400 - myPlayer.radius - 5);
-        myPlayer.y = Math.min(Math.max(myPlayer.y, myPlayer.radius + 5), 2400 - myPlayer.radius - 5);
+        myPlayer.y = Math.min(Math.max(myPlayer.y, myPlayer.radius + 5), 1600 - myPlayer.radius - 5);
         socket.emit('playerMovement', { x: myPlayer.x, y: myPlayer.y });
+    }
+    
+    function checkOrbCollisions() {
+        if (!myPlayer) return;
+        for (let i = 0; i < orbs.length; i++) {
+            const orb = orbs[i];
+            const dist = Math.hypot(myPlayer.x - orb.x, myPlayer.y - orb.y);
+            if (dist < myPlayer.radius + orb.radius) {
+                socket.emit('collectOrb', orb.id);
+                break;
+            }
+        }
     }
     
     function updateCamera() {
@@ -350,6 +343,8 @@
         updateCamera();
         ctx.fillStyle = '#0a0f1e';
         ctx.fillRect(0, 0, canvas.width, canvas.height);
+        
+        // Draw orbs
         for (const orb of orbs) {
             const screenX = orb.x - cameraX;
             const screenY = orb.y - cameraY;
@@ -361,6 +356,8 @@
                 ctx.fill();
             }
         }
+        
+        // Draw other players
         for (const id in players) {
             if (id === myId) continue;
             const p = players[id];
@@ -377,6 +374,8 @@
                 ctx.fillText(p.username, screenX - 20, screenY - 15);
             }
         }
+        
+        // Draw my player
         const myScreenX = myPlayer.x - cameraX;
         const myScreenY = myPlayer.y - cameraY;
         ctx.beginPath();
@@ -402,9 +401,6 @@
         }
         requestAnimationFrame(gameLoop);
     }
-    
-    generateOrbs(80);
-    setInterval(() => { if (orbs.length < 100) generateOrbs(5); }, 2000);
 </script>
 </body>
 </html>
