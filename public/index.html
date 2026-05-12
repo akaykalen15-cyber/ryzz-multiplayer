@@ -16,6 +16,7 @@
             align-items: center;
             min-height: 100vh;
             font-family: 'Arial', sans-serif;
+            overflow: hidden;
         }
         #joinScreen, #gameScreen {
             background: #111827;
@@ -61,6 +62,7 @@
             display: block;
             border-radius: 8px;
             cursor: crosshair;
+            touch-action: none;
         }
         #ui {
             margin-top: 12px;
@@ -206,6 +208,20 @@
 
 <script src="/socket.io/socket.io.js"></script>
 <script>
+    // Disable page zoom with Ctrl/Cmd + wheel
+    window.addEventListener('wheel', (e) => {
+        if (e.ctrlKey || e.metaKey) {
+            e.preventDefault();
+        }
+    }, { passive: false });
+
+    // Disable Ctrl + / Cmd + zoom shortcuts
+    window.addEventListener('keydown', (e) => {
+        if ((e.ctrlKey || e.metaKey) && (e.key === '+' || e.key === '-' || e.key === '0')) {
+            e.preventDefault();
+        }
+    });
+
     const socket = io();
     
     let players = {};
@@ -216,7 +232,6 @@
     let orbs = [];
     let currentScore = 0;
     
-    // ZOOM SETTINGS
     let zoom = 1.0;
     const MIN_ZOOM = 0.5;
     const MAX_ZOOM = 2.0;
@@ -250,7 +265,6 @@
     function setZoom(newZoom) {
         zoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, newZoom));
         updateCanvasSize();
-        // Recalculate camera after zoom
         if (myPlayer) {
             updateCamera();
             draw();
@@ -269,7 +283,6 @@
         setZoom(1.0);
     }
     
-    // Mouse wheel zoom
     canvas.addEventListener('wheel', (e) => {
         e.preventDefault();
         if (e.deltaY < 0) {
@@ -411,7 +424,6 @@
         const scaleY = canvas.height / rect.height;
         let canvasX = (e.clientX - rect.left) * scaleX;
         let canvasY = (e.clientY - rect.top) * scaleY;
-        // Adjust for zoom when calculating world coordinates
         mouseX = (canvasX / zoom) + cameraX;
         mouseY = (canvasY / zoom) + cameraY;
         mouseX = Math.min(Math.max(mouseX, 0), 2400);
@@ -447,7 +459,6 @@
     
     function updateCamera() {
         if (!myPlayer) return;
-        // Camera follows player, accounting for zoom
         const effectiveWidth = canvas.width / zoom;
         const effectiveHeight = canvas.height / zoom;
         cameraX = myPlayer.x - effectiveWidth / 2;
@@ -459,10 +470,10 @@
     function draw() {
         if (!myPlayer) return;
         updateCamera();
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
         ctx.fillStyle = '#0a0f1e';
         ctx.fillRect(0, 0, canvas.width, canvas.height);
         
-        // Draw orbs
         for (const orb of orbs) {
             const screenX = (orb.x - cameraX) * zoom;
             const screenY = (orb.y - cameraY) * zoom;
@@ -482,7 +493,6 @@
             }
         }
         
-        // Draw other players
         for (const id in players) {
             if (id === myId) continue;
             const p = players[id];
@@ -501,7 +511,6 @@
             }
         }
         
-        // Draw my player
         const myScreenX = (myPlayer.x - cameraX) * zoom;
         const myScreenY = (myPlayer.y - cameraY) * zoom;
         const myRadius = myPlayer.radius * zoom;
@@ -526,7 +535,6 @@
         requestAnimationFrame(gameLoop);
     }
     
-    // Initialize canvas size
     updateCanvasSize();
 </script>
 </body>
