@@ -119,9 +119,9 @@
 </head>
 <body>
 <div id="joinScreen">
-    <h1>👑 RYZZ.io</h1>
+    <h1>RYZZ.io</h1>
     <input type="text" id="usernameInput" placeholder="Enter username" maxlength="20">
-    <input type="password" id="passwordInput" placeholder="Admin password (if needed)" style="margin-top: 10px;">
+    <input type="password" id="passwordInput" placeholder="Admin password" style="margin-top: 10px;">
     <br>
     <button id="joinBtn">Join Game</button>
     <div id="errorMsg"></div>
@@ -132,7 +132,7 @@
         <canvas id="gameCanvas" width="1200" height="800"></canvas>
         <div id="ui">
             <div class="stats">🎯 Score: <span id="scoreValue">0</span></div>
-            <div class="stats">👑 Admin: <span id="adminName">RYZZ</span></div>
+            <div class="stats">👑 Admin: <span id="adminName"></span></div>
             <div id="leaderboard">
                 <h4>🏆 LEADERBOARD</h4>
                 <div id="leaderboardList"></div>
@@ -173,6 +173,7 @@
     const chatMessages = document.getElementById('chatMessages');
     const chatInput = document.getElementById('chatInput');
     const chatSend = document.getElementById('chatSend');
+    const adminNameSpan = document.getElementById('adminName');
     
     function addChatMessage(sender, message, isSystem = false, isAdmin = false) {
         const div = document.createElement('div');
@@ -223,8 +224,12 @@
             if (players[id].username === usernameInput.value.trim()) {
                 myId = id;
                 myPlayer = players[id];
-                if (myPlayer.isAdmin) addChatMessage('System', '👑 You are ADMIN! Type /help', true);
-                document.getElementById('adminName').innerHTML = myPlayer.username;
+                if (myPlayer.isAdmin) {
+                    addChatMessage('System', 'You are ADMIN! Type /help for commands', true);
+                    adminNameSpan.innerHTML = myPlayer.username + ' 👑';
+                } else {
+                    adminNameSpan.innerHTML = 'None';
+                }
             }
         }
     });
@@ -358,7 +363,7 @@
             }
         }
         
-        // Draw other players (all same color - no admin distinction)
+        // Draw other players (all red, no crown)
         for (const id in players) {
             if (id === myId) continue;
             const p = players[id];
@@ -368,7 +373,7 @@
                 screenY + p.radius > 0 && screenY - p.radius < canvas.height) {
                 ctx.beginPath();
                 ctx.arc(screenX, screenY, p.radius, 0, Math.PI * 2);
-                ctx.fillStyle = '#ef4444';  // All players red
+                ctx.fillStyle = '#ef4444';
                 ctx.fill();
                 ctx.fillStyle = 'white';
                 ctx.font = '10px Arial';
@@ -376,12 +381,12 @@
             }
         }
         
-        // Draw my player (no crown)
+        // Draw my player (blue, no crown)
         const myScreenX = myPlayer.x - cameraX;
         const myScreenY = myPlayer.y - cameraY;
         ctx.beginPath();
         ctx.arc(myScreenX, myScreenY, myPlayer.radius, 0, Math.PI * 2);
-        ctx.fillStyle = '#3b82f6';  // You are blue
+        ctx.fillStyle = '#3b82f6';
         ctx.fill();
         ctx.strokeStyle = '#ffffff';
         ctx.lineWidth = 3;
@@ -389,6 +394,7 @@
         ctx.fillStyle = '#ffffff';
         ctx.font = `bold ${Math.floor(myPlayer.radius * 0.6)}px Arial`;
         ctx.fillText(myPlayer.username, myScreenX - 18, myScreenY - 12);
+        // NO CROWN HERE
     }
     
     function gameLoop() {
