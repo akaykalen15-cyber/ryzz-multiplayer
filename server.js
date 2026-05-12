@@ -7,7 +7,9 @@ const app = express();
 const server = http.createServer(app);
 const io = socketIO(server);
 
+// 👑 ONLY YOU know these!
 const ADMIN_NAME = 'RYZZ';
+const ADMIN_PASSWORD = 'ryzzking2024';  // 🔒 Change this to your own secret!
 
 app.use(express.static(path.join(__dirname, 'public')));
 
@@ -16,7 +18,6 @@ let players = {};
 const MAP_WIDTH = 2400;
 const MAP_HEIGHT = 1600;
 
-// Store orbs on server
 let orbs = [];
 
 function generateOrbs(count) {
@@ -31,10 +32,8 @@ function generateOrbs(count) {
     }
 }
 
-// Initial orbs
 generateOrbs(80);
 
-// Respawn orbs over time
 setInterval(() => {
     if (orbs.length < 60) {
         generateOrbs(10);
@@ -44,8 +43,32 @@ setInterval(() => {
 io.on('connection', (socket) => {
     console.log('Player connected:', socket.id);
 
-    socket.on('joinGame', (username) => {
-        let isAdmin = (username === ADMIN_NAME);
+    socket.on('joinGame', (data) => {
+        const username = data.username;
+        const password = data.password || '';
+        
+        // 🔒 Check if this is the REAL admin (name AND password)
+        let isAdmin = (username === ADMIN_NAME && password === ADMIN_PASSWORD);
+        
+        // If someone tries to use admin name but wrong password
+        if (username === ADMIN_NAME && !isAdmin) {
+            socket.emit('nameRejected', 'Invalid admin credentials!');
+            return;
+        }
+        
+        // Check for duplicate usernames
+        let nameTaken = false;
+        for (let id in players) {
+            if (players[id].username === username) {
+                nameTaken = true;
+                break;
+            }
+        }
+        
+        if (nameTaken) {
+            socket.emit('nameRejected', 'Username already taken! Choose another.');
+            return;
+        }
         
         players[socket.id] = {
             id: socket.id,
@@ -58,16 +81,9 @@ io.on('connection', (socket) => {
             godMode: false
         };
 
-        // Send orbs to new player
         socket.emit('currentOrbs', orbs);
-        
-        // Send current players
         socket.emit('currentPlayers', players);
-        
-        // Tell everyone about new player
         socket.broadcast.emit('newPlayer', players[socket.id]);
-        
-        // Update leaderboard
         updateLeaderboard();
         
         if (isAdmin) {
@@ -88,24 +104,19 @@ io.on('connection', (socket) => {
     socket.on('collectOrb', (orbId) => {
         if (!players[socket.id]) return;
         
-        // Find and remove the orb
         const orbIndex = orbs.findIndex(o => o.id === orbId);
         if (orbIndex !== -1) {
             orbs.splice(orbIndex, 1);
             
-            // Add score
             players[socket.id].score += 10;
             players[socket.id].radius = Math.min(80, 20 + Math.floor(players[socket.id].score / 50));
             
-            // Update everyone
             updateLeaderboard();
             io.emit('scoreUpdate', {
                 id: socket.id,
                 score: players[socket.id].score,
                 radius: players[socket.id].radius
             });
-            
-            // Tell everyone about removed orb
             io.emit('orbCollected', orbId);
         }
     });
@@ -118,7 +129,6 @@ io.on('connection', (socket) => {
         if (data.message.startsWith('/') && sender.isAdmin) {
             processAdminCommand(socket, data.message);
         } else {
-            // Broadcast to ALL players including sender
             io.emit('chatMessage', {
                 username: sender.username,
                 message: data.message,
@@ -210,5 +220,6 @@ function processAdminCommand(socket, command) {
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, '0.0.0.0', () => {
     console.log(`✅ RYZZ.io server running on port ${PORT}`);
-    console.log(`👑 Admin username: ${ADMIN_NAME}`);
+    console.log(`👑 Admin name: ${ADMIN_NAME}`);
+    console.log(`🔒 Admin password required`);
 });
