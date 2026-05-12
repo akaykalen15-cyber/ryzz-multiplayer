@@ -208,18 +208,12 @@
 
 <script src="/socket.io/socket.io.js"></script>
 <script>
-    // Disable page zoom with Ctrl/Cmd + wheel
+    // Disable page zoom
     window.addEventListener('wheel', (e) => {
-        if (e.ctrlKey || e.metaKey) {
-            e.preventDefault();
-        }
+        if (e.ctrlKey || e.metaKey) e.preventDefault();
     }, { passive: false });
-
-    // Disable Ctrl + / Cmd + zoom shortcuts
     window.addEventListener('keydown', (e) => {
-        if ((e.ctrlKey || e.metaKey) && (e.key === '+' || e.key === '-' || e.key === '0')) {
-            e.preventDefault();
-        }
+        if ((e.ctrlKey || e.metaKey) && (e.key === '+' || e.key === '-' || e.key === '0')) e.preventDefault();
     });
 
     const socket = io();
@@ -265,46 +259,22 @@
     function setZoom(newZoom) {
         zoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, newZoom));
         updateCanvasSize();
-        if (myPlayer) {
-            updateCamera();
-            draw();
-        }
-    }
-    
-    function zoomIn() {
-        setZoom(zoom + 0.1);
-    }
-    
-    function zoomOut() {
-        setZoom(zoom - 0.1);
-    }
-    
-    function zoomReset() {
-        setZoom(1.0);
+        if (myPlayer) { updateCamera(); draw(); }
     }
     
     canvas.addEventListener('wheel', (e) => {
         e.preventDefault();
-        if (e.deltaY < 0) {
-            zoomIn();
-        } else {
-            zoomOut();
-        }
+        setZoom(e.deltaY < 0 ? zoom + 0.1 : zoom - 0.1);
     });
-    
-    document.getElementById('zoomInBtn').onclick = zoomIn;
-    document.getElementById('zoomOutBtn').onclick = zoomOut;
-    document.getElementById('zoomResetBtn').onclick = zoomReset;
+    document.getElementById('zoomInBtn').onclick = () => setZoom(zoom + 0.1);
+    document.getElementById('zoomOutBtn').onclick = () => setZoom(zoom - 0.1);
+    document.getElementById('zoomResetBtn').onclick = () => setZoom(1.0);
     
     function addChatMessage(sender, message, isSystem = false, isAdmin = false) {
         const div = document.createElement('div');
-        if (isSystem) {
-            div.innerHTML = `<span class="chat-system">🔔 ${message}</span>`;
-        } else if (isAdmin) {
-            div.innerHTML = `<span class="chat-admin">👑 ${sender}:</span> <span style="color:white"> ${message}</span>`;
-        } else {
-            div.innerHTML = `<span>💬 ${sender}:</span> <span style="color:#ccc"> ${message}</span>`;
-        }
+        if (isSystem) div.innerHTML = `<span class="chat-system">🔔 ${message}</span>`;
+        else if (isAdmin) div.innerHTML = `<span class="chat-admin">👑 ${sender}:</span> <span style="color:white"> ${message}</span>`;
+        else div.innerHTML = `<span>💬 ${sender}:</span> <span style="color:#ccc"> ${message}</span>`;
         chatMessages.appendChild(div);
         chatMessages.scrollTop = chatMessages.scrollHeight;
         while (chatMessages.children.length > 50) chatMessages.removeChild(chatMessages.firstChild);
@@ -317,22 +287,13 @@
         chatInput.value = '';
         chatInput.focus();
     }
-    
     chatSend.onclick = sendChat;
-    chatInput.addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') {
-            e.preventDefault();
-            sendChat();
-        }
-    });
+    chatInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') { e.preventDefault(); sendChat(); } });
     
     joinBtn.onclick = () => {
         const username = usernameInput.value.trim();
         const password = passwordInput.value;
-        if (!username) {
-            errorMsg.innerText = 'Please enter a username';
-            return;
-        }
+        if (!username) { errorMsg.innerText = 'Please enter a username'; return; }
         joinScreen.classList.add('hidden');
         gameScreen.classList.remove('hidden');
         socket.emit('joinGame', { username: username, password: password });
@@ -346,43 +307,17 @@
                 myId = id;
                 myPlayer = players[id];
                 if (myPlayer.isAdmin) {
-                    addChatMessage('System', 'You are ADMIN! Type /help for commands', true);
+                    addChatMessage('System', '👑 You are ADMIN! Type /help', true);
                     adminNameSpan.innerHTML = myPlayer.username;
-                } else {
-                    adminNameSpan.innerHTML = 'None';
                 }
             }
         }
     });
-    
-    socket.on('currentOrbs', (serverOrbs) => {
-        orbs = serverOrbs;
-    });
-    
-    socket.on('nameRejected', (msg) => {
-        alert(msg);
-        window.location.reload();
-    });
-    
-    socket.on('newPlayer', (playerData) => {
-        players[playerData.id] = playerData;
-        addChatMessage('System', `${playerData.username} joined!`, true);
-    });
-    
-    socket.on('playerMoved', (playerData) => {
-        if (players[playerData.id]) {
-            players[playerData.id].x = playerData.x;
-            players[playerData.id].y = playerData.y;
-        }
-    });
-    
-    socket.on('playerDisconnected', (playerId) => {
-        if (players[playerId]) {
-            addChatMessage('System', `${players[playerId].username} left`, true);
-            delete players[playerId];
-        }
-    });
-    
+    socket.on('currentOrbs', (serverOrbs) => { orbs = serverOrbs; });
+    socket.on('nameRejected', (msg) => { alert(msg); window.location.reload(); });
+    socket.on('newPlayer', (playerData) => { players[playerData.id] = playerData; addChatMessage('System', `${playerData.username} joined!`, true); });
+    socket.on('playerMoved', (playerData) => { if (players[playerData.id]) { players[playerData.id].x = playerData.x; players[playerData.id].y = playerData.y; } });
+    socket.on('playerDisconnected', (playerId) => { if (players[playerId]) { addChatMessage('System', `${players[playerId].username} left`, true); delete players[playerId]; } });
     socket.on('leaderboardUpdate', (leaderboard) => {
         let html = '';
         for (let i = 0; i < leaderboard.length; i++) {
@@ -392,28 +327,12 @@
         }
         leaderboardList.innerHTML = html;
     });
-    
     socket.on('scoreUpdate', (data) => {
-        if (players[data.id]) {
-            players[data.id].score = data.score;
-            players[data.id].radius = data.radius;
-        }
-        if (data.id === myId) {
-            currentScore = data.score;
-            scoreElement.innerText = currentScore;
-            if (myPlayer) myPlayer.radius = data.radius;
-        }
+        if (players[data.id]) { players[data.id].score = data.score; players[data.id].radius = data.radius; }
+        if (data.id === myId) { currentScore = data.score; scoreElement.innerText = currentScore; if (myPlayer) myPlayer.radius = data.radius; }
     });
-    
-    socket.on('orbCollected', (orbId) => {
-        const index = orbs.findIndex(o => o.id === orbId);
-        if (index !== -1) orbs.splice(index, 1);
-    });
-    
-    socket.on('chatMessage', (data) => {
-        addChatMessage(data.username, data.message, data.isSystem, data.isAdmin);
-    });
-    
+    socket.on('orbCollected', (orbId) => { const index = orbs.findIndex(o => o.id === orbId); if (index !== -1) orbs.splice(index, 1); });
+    socket.on('chatMessage', (data) => { addChatMessage(data.username, data.message, data.isSystem, data.isAdmin); });
     socket.on('adminConfirm', (msg) => addChatMessage('System', msg, true));
     socket.on('kicked', (msg) => { alert(msg); window.location.reload(); });
     
@@ -457,39 +376,36 @@
         }
     }
     
-    // 🍽️ PLAYER EATING COLLISION
+    // SIMPLE PLAYER EATING - BIGGER ALWAYS WINS
     function checkPlayerCollisions() {
         if (!myPlayer) return;
         
         for (const id in players) {
             if (id === myId) continue;
             const other = players[id];
+            
             const dist = Math.hypot(myPlayer.x - other.x, myPlayer.y - other.y);
             const combinedRadius = myPlayer.radius + other.radius;
             
             if (dist < combinedRadius) {
-                const sizeRatio = myPlayer.radius / other.radius;
-                
-                if (sizeRatio > 1.15 && !myPlayer.godMode) {
-                    // I eat the other player
+                // BIGGER EATS SMALLER - plain and simple
+                if (myPlayer.radius > other.radius) {
+                    // I EAT THEM
                     socket.emit('eatPlayer', id);
                     addChatMessage('System', `🍽️ You ate ${other.username}!`, true);
-                } else if (sizeRatio < 0.85 && !myPlayer.godMode) {
-                    // Other player eats me
+                } else if (other.radius > myPlayer.radius) {
+                    // THEY EAT ME
                     socket.emit('eatPlayer', myId);
                     addChatMessage('System', `💀 You were eaten by ${other.username}!`, true);
-                    // Respawn at random location
-                    myPlayer.x = Math.random() * 2400;
-                    myPlayer.y = Math.random() * 1600;
+                    // Respawn at random safe location
+                    myPlayer.x = Math.random() * 2200 + 100;
+                    myPlayer.y = Math.random() * 1400 + 100;
                     socket.emit('playerMovement', { x: myPlayer.x, y: myPlayer.y });
                 } else {
-                    // Similar size - bounce apart
+                    // Same size - gentle push apart
                     const angle = Math.atan2(myPlayer.y - other.y, myPlayer.x - other.x);
-                    const push = 8;
-                    myPlayer.x += Math.cos(angle) * push;
-                    myPlayer.y += Math.sin(angle) * push;
-                    other.x -= Math.cos(angle) * push;
-                    other.y -= Math.sin(angle) * push;
+                    myPlayer.x += Math.cos(angle) * 15;
+                    myPlayer.y += Math.sin(angle) * 15;
                 }
             }
         }
@@ -508,7 +424,6 @@
     function draw() {
         if (!myPlayer) return;
         updateCamera();
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
         ctx.fillStyle = '#0a0f1e';
         ctx.fillRect(0, 0, canvas.width, canvas.height);
         
@@ -517,8 +432,7 @@
             const screenX = (orb.x - cameraX) * zoom;
             const screenY = (orb.y - cameraY) * zoom;
             const radius = orb.radius * zoom;
-            if (screenX + radius > 0 && screenX - radius < canvas.width &&
-                screenY + radius > 0 && screenY - radius < canvas.height) {
+            if (screenX + radius > 0 && screenX - radius < canvas.width && screenY + radius > 0 && screenY - radius < canvas.height) {
                 ctx.beginPath();
                 ctx.arc(screenX, screenY, radius, 0, Math.PI * 2);
                 ctx.fillStyle = orb.color || '#fbbf24';
@@ -539,22 +453,25 @@
             const screenX = (p.x - cameraX) * zoom;
             const screenY = (p.y - cameraY) * zoom;
             const radius = p.radius * zoom;
-            if (screenX + radius > 0 && screenX - radius < canvas.width &&
-                screenY + radius > 0 && screenY - radius < canvas.height) {
+            if (screenX + radius > 0 && screenX - radius < canvas.width && screenY + radius > 0 && screenY - radius < canvas.height) {
                 ctx.beginPath();
                 ctx.arc(screenX, screenY, radius, 0, Math.PI * 2);
-                ctx.fillStyle = '#ef4444';
-                ctx.fill();
-                // Add size difference indicator (glow for bigger players)
-                if (p.radius > myPlayer.radius * 1.2) {
-                    ctx.shadowBlur = 10 * zoom;
-                    ctx.shadowColor = '#ff0000';
-                    ctx.fill();
-                    ctx.shadowBlur = 0;
+                // Color based on size comparison to you
+                if (p.radius > myPlayer.radius) {
+                    ctx.fillStyle = '#ff4444'; // Bigger = dark red (danger)
+                } else {
+                    ctx.fillStyle = '#ef4444'; // Smaller = normal red
                 }
+                ctx.fill();
                 ctx.fillStyle = 'white';
                 ctx.font = `${Math.max(10, 10 * zoom)}px Arial`;
                 ctx.fillText(p.username, screenX - (20 * zoom), screenY - (15 * zoom));
+                // Show size difference
+                if (p.radius > myPlayer.radius * 1.2) {
+                    ctx.fillStyle = '#ff0000';
+                    ctx.font = `${12 * zoom}px Arial`;
+                    ctx.fillText('⚠️', screenX + 10, screenY - 10);
+                }
             }
         }
         
@@ -572,20 +489,6 @@
         ctx.fillStyle = '#ffffff';
         ctx.font = `bold ${Math.max(12, myRadius * 0.6)}px Arial`;
         ctx.fillText(myPlayer.username, myScreenX - (18 * zoom), myScreenY - (12 * zoom));
-        
-        // Show size warning if someone is bigger nearby
-        for (const id in players) {
-            if (id === myId) continue;
-            const p = players[id];
-            if (p.radius > myPlayer.radius * 1.3) {
-                const dist = Math.hypot(myPlayer.x - p.x, myPlayer.y - p.y);
-                if (dist < 300) {
-                    ctx.fillStyle = '#ef4444';
-                    ctx.font = `${14 * zoom}px Arial`;
-                    ctx.fillText('⚠️ DANGER!', myScreenX - (40 * zoom), myScreenY - (myRadius + 15 * zoom));
-                }
-            }
-        }
     }
     
     function gameLoop() {
