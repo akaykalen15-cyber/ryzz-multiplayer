@@ -54,7 +54,6 @@
         #errorMsg {
             color: #ef4444;
             margin-top: 10px;
-            font-size: 14px;
         }
         #gameContainer {
             background: #111827;
@@ -71,28 +70,18 @@
             margin-top: 12px;
             display: flex;
             justify-content: space-between;
-            align-items: center;
             gap: 15px;
             flex-wrap: wrap;
         }
-        .stats {
+        .stats, #leaderboard {
             background: #1f2937;
             padding: 8px 15px;
             border-radius: 8px;
             color: white;
             font-size: 14px;
         }
-        .stats span {
-            color: #fbbf24;
-            font-weight: bold;
-        }
         #leaderboard {
-            background: #1f2937;
-            padding: 8px 15px;
-            border-radius: 8px;
-            color: white;
             min-width: 180px;
-            font-size: 13px;
         }
         #leaderboard h4 {
             margin-bottom: 5px;
@@ -104,13 +93,12 @@
             border-radius: 8px;
         }
         #chatMessages {
-            height: 100px;
+            height: 120px;
             overflow-y: auto;
             background: #0a0f1e;
             border-radius: 8px 8px 0 0;
             padding: 8px;
-            font-size: 12px;
-            color: #ccc;
+            font-size: 13px;
         }
         #chatInputArea {
             display: flex;
@@ -142,7 +130,7 @@
 <body>
 <div id="joinScreen">
     <h1>👑 RYZZ.io</h1>
-    <input type="text" id="usernameInput" placeholder="Enter username" maxlength="20" autocomplete="off">
+    <input type="text" id="usernameInput" placeholder="Enter username" maxlength="20">
     <br>
     <button id="joinBtn">Join Game</button>
     <div id="errorMsg"></div>
@@ -181,7 +169,6 @@
     let orbs = [];
     let currentScore = 0;
     
-    // DOM elements
     const joinScreen = document.getElementById('joinScreen');
     const gameScreen = document.getElementById('gameScreen');
     const usernameInput = document.getElementById('usernameInput');
@@ -195,24 +182,42 @@
     const chatInput = document.getElementById('chatInput');
     const chatSend = document.getElementById('chatSend');
     
-    // Generate orbs locally
+    function addChatMessage(sender, message, isSystem = false, isAdmin = false) {
+        const div = document.createElement('div');
+        if (isSystem) {
+            div.innerHTML = `<span class="chat-system">🔔 ${message}</span>`;
+        } else if (isAdmin) {
+            div.innerHTML = `<span class="chat-admin">👑 ${sender}:</span> <span style="color:white"> ${message}</span>`;
+        } else {
+            div.innerHTML = `<span>💬 ${sender}:</span> <span style="color:#ccc"> ${message}</span>`;
+        }
+        chatMessages.appendChild(div);
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+        while (chatMessages.children.length > 50) chatMessages.removeChild(chatMessages.firstChild);
+    }
+    
+    function sendChat() {
+        const text = chatInput.value.trim();
+        if (!text) return;
+        socket.emit('chatMessage', { message: text });
+        chatInput.value = '';
+        chatInput.focus();
+    }
+    
+    chatSend.onclick = sendChat;
+    chatInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') sendChat(); });
+    
     function generateOrbs(count) {
         for (let i = 0; i < count; i++) {
-            orbs.push({
-                x: Math.random() * 2400,
-                y: Math.random() * 1600,
-                radius: 6,
-                value: 10
-            });
+            orbs.push({ x: Math.random() * 2400, y: Math.random() * 1600, radius: 6, value: 10 });
         }
     }
     
-    // Check orb collisions
     function checkOrbCollisions() {
         if (!myPlayer) return;
         for (let i = 0; i < orbs.length; i++) {
-            let orb = orbs[i];
-            let dist = Math.hypot(myPlayer.x - orb.x, myPlayer.y - orb.y);
+            const orb = orbs[i];
+            const dist = Math.hypot(myPlayer.x - orb.x, myPlayer.y - orb.y);
             if (dist < myPlayer.radius + orb.radius) {
                 orbs.splice(i, 1);
                 currentScore += orb.value;
@@ -223,55 +228,32 @@
         }
     }
     
-    // Spawn orbs over time
-    setInterval(() => {
-        if (orbs.length < 100) generateOrbs(5);
-    }, 2000);
-    
-    generateOrbs(80);
-    
-    // Join game
     joinBtn.onclick = () => {
-        let username = usernameInput.value.trim();
-        if (username === '') {
+        const username = usernameInput.value.trim();
+        if (!username) {
             errorMsg.innerText = 'Please enter a username';
             return;
         }
-        if (username.length > 20) {
-            errorMsg.innerText = 'Username too long (max 20 characters)';
-            return;
-        }
-        
         joinScreen.classList.add('hidden');
         gameScreen.classList.remove('hidden');
-        
         socket.emit('joinGame', username);
-        
-        // Start game loop
         requestAnimationFrame(gameLoop);
     };
     
-    usernameInput.addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') joinBtn.click();
-    });
-    
-    // Socket events
     socket.on('currentPlayers', (serverPlayers) => {
         players = serverPlayers;
-        for (let id in players) {
+        for (const id in players) {
             if (players[id].username === usernameInput.value.trim()) {
                 myId = id;
                 myPlayer = players[id];
-                if (myPlayer.isAdmin) {
-                    addChatMessage('System', '👑 You are ADMIN! Type /help for commands', true);
-                }
+                if (myPlayer.isAdmin) addChatMessage('System', '👑 You are ADMIN! Type /help', true);
             }
         }
     });
     
     socket.on('newPlayer', (playerData) => {
         players[playerData.id] = playerData;
-        addChatMessage('System', `${playerData.username} joined the game!`, true);
+        addChatMessage('System', `${playerData.username} joined!`, true);
     });
     
     socket.on('playerMoved', (playerData) => {
@@ -283,7 +265,7 @@
     
     socket.on('playerDisconnected', (playerId) => {
         if (players[playerId]) {
-            addChatMessage('System', `${players[playerId].username} left the game`, true);
+            addChatMessage('System', `${players[playerId].username} left`, true);
             delete players[playerId];
         }
     });
@@ -291,10 +273,9 @@
     socket.on('leaderboardUpdate', (leaderboard) => {
         let html = '';
         for (let i = 0; i < leaderboard.length; i++) {
-            let p = leaderboard[i];
-            let medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : '  ';
-            let adminTag = p.isAdmin ? ' 👑' : '';
-            html += `<div>${medal} ${p.username}${adminTag} - ${p.score}</div>`;
+            const p = leaderboard[i];
+            const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : '  ';
+            html += `<div>${medal} ${p.username}${p.isAdmin ? ' 👑' : ''} - ${p.score}</div>`;
         }
         leaderboardList.innerHTML = html;
     });
@@ -315,46 +296,9 @@
         addChatMessage(data.username, data.message, data.isSystem, data.isAdmin);
     });
     
-    socket.on('adminConfirm', (msg) => {
-        addChatMessage('System', msg, true);
-        document.getElementById('adminName').style.color = '#fbbf24';
-    });
+    socket.on('adminConfirm', (msg) => addChatMessage('System', msg, true));
+    socket.on('kicked', (msg) => { alert(msg); window.location.reload(); });
     
-    socket.on('kicked', (msg) => {
-        alert(msg);
-        window.location.reload();
-    });
-    
-    function addChatMessage(sender, message, isSystem = false, isAdmin = false) {
-        let div = document.createElement('div');
-        if (isSystem) {
-            div.innerHTML = `<span class="chat-system">🔔 ${message}</span>`;
-        } else if (isAdmin) {
-            div.innerHTML = `<span class="chat-admin">👑 ${sender}:</span> <span style="color:white">${message}</span>`;
-        } else {
-            div.innerHTML = `<span>💬 ${sender}:</span> <span style="color:#ccc">${message}</span>`;
-        }
-        chatMessages.appendChild(div);
-        chatMessages.scrollTop = chatMessages.scrollHeight;
-        while (chatMessages.children.length > 50) {
-            chatMessages.removeChild(chatMessages.firstChild);
-        }
-    }
-    
-    function sendChat() {
-        let text = chatInput.value.trim();
-        if (text === '') return;
-        socket.emit('chatMessage', { message: text });
-        chatInput.value = '';
-        chatInput.focus();
-    }
-    
-    chatSend.onclick = sendChat;
-    chatInput.addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') sendChat();
-    });
-    
-    // Mouse movement
     canvas.addEventListener('mousemove', (e) => {
         if (!myPlayer) return;
         const rect = canvas.getBoundingClientRect();
@@ -370,15 +314,13 @@
     
     function movePlayer() {
         if (!myPlayer) return;
-        let dx = mouseX - myPlayer.x;
-        let dy = mouseY - myPlayer.y;
-        let distance = Math.hypot(dx, dy);
+        const dx = mouseX - myPlayer.x;
+        const dy = mouseY - myPlayer.y;
+        const distance = Math.hypot(dx, dy);
         if (distance > 1) {
-            let speed = Math.min(8, 200 / myPlayer.radius);
-            let moveX = (dx / distance) * speed;
-            let moveY = (dy / distance) * speed;
-            myPlayer.x += moveX;
-            myPlayer.y += moveY;
+            const speed = Math.min(8, 200 / myPlayer.radius);
+            myPlayer.x += (dx / distance) * speed;
+            myPlayer.y += (dy / distance) * speed;
         }
         myPlayer.x = Math.min(Math.max(myPlayer.x, myPlayer.radius + 5), 2400 - myPlayer.radius - 5);
         myPlayer.y = Math.min(Math.max(myPlayer.y, myPlayer.radius + 5), 1600 - myPlayer.radius - 5);
@@ -396,14 +338,11 @@
     function draw() {
         if (!myPlayer) return;
         updateCamera();
-        
         ctx.fillStyle = '#0a0f1e';
         ctx.fillRect(0, 0, canvas.width, canvas.height);
-        
-        // Draw orbs
-        for (let orb of orbs) {
-            let screenX = orb.x - cameraX;
-            let screenY = orb.y - cameraY;
+        for (const orb of orbs) {
+            const screenX = orb.x - cameraX;
+            const screenY = orb.y - cameraY;
             if (screenX + orb.radius > 0 && screenX - orb.radius < canvas.width &&
                 screenY + orb.radius > 0 && screenY - orb.radius < canvas.height) {
                 ctx.beginPath();
@@ -412,13 +351,11 @@
                 ctx.fill();
             }
         }
-        
-        // Draw other players
-        for (let id in players) {
+        for (const id in players) {
             if (id === myId) continue;
-            let p = players[id];
-            let screenX = p.x - cameraX;
-            let screenY = p.y - cameraY;
+            const p = players[id];
+            const screenX = p.x - cameraX;
+            const screenY = p.y - cameraY;
             if (screenX + p.radius > 0 && screenX - p.radius < canvas.width &&
                 screenY + p.radius > 0 && screenY - p.radius < canvas.height) {
                 ctx.beginPath();
@@ -428,16 +365,10 @@
                 ctx.fillStyle = 'white';
                 ctx.font = '10px Arial';
                 ctx.fillText(p.username, screenX - 20, screenY - 15);
-                if (p.isAdmin) {
-                    ctx.fillStyle = '#fbbf24';
-                    ctx.fillText('👑', screenX + 10, screenY - 15);
-                }
             }
         }
-        
-        // Draw my player
-        let myScreenX = myPlayer.x - cameraX;
-        let myScreenY = myPlayer.y - cameraY;
+        const myScreenX = myPlayer.x - cameraX;
+        const myScreenY = myPlayer.y - cameraY;
         ctx.beginPath();
         ctx.arc(myScreenX, myScreenY, myPlayer.radius, 0, Math.PI * 2);
         ctx.fillStyle = '#3b82f6';
@@ -461,6 +392,9 @@
         }
         requestAnimationFrame(gameLoop);
     }
+    
+    generateOrbs(80);
+    setInterval(() => { if (orbs.length < 100) generateOrbs(5); }, 2000);
 </script>
 </body>
 </html>
