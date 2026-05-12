@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>RYZZ.io - Multiplayer Arena</title>
+    <title>RYZZ.io - Admin Arena</title>
     <style>
         * {
             margin: 0;
@@ -75,13 +75,8 @@
             color: white;
             font-size: 14px;
         }
-        #leaderboard {
-            min-width: 180px;
-        }
-        #leaderboard h4 {
-            margin-bottom: 5px;
-            color: #fbbf24;
-        }
+        #leaderboard { min-width: 180px; }
+        #leaderboard h4 { margin-bottom: 5px; color: #fbbf24; }
         #chatContainer {
             margin-top: 10px;
             background: #1f2937;
@@ -126,6 +121,7 @@
 <div id="joinScreen">
     <h1>👑 RYZZ.io</h1>
     <input type="text" id="usernameInput" placeholder="Enter username" maxlength="20">
+    <input type="password" id="passwordInput" placeholder="Admin password (if needed)" style="margin-top: 10px;">
     <br>
     <button id="joinBtn">Join Game</button>
     <div id="errorMsg"></div>
@@ -167,6 +163,7 @@
     const joinScreen = document.getElementById('joinScreen');
     const gameScreen = document.getElementById('gameScreen');
     const usernameInput = document.getElementById('usernameInput');
+    const passwordInput = document.getElementById('passwordInput');
     const joinBtn = document.getElementById('joinBtn');
     const errorMsg = document.getElementById('errorMsg');
     const canvas = document.getElementById('gameCanvas');
@@ -209,17 +206,17 @@
     
     joinBtn.onclick = () => {
         const username = usernameInput.value.trim();
+        const password = passwordInput.value;
         if (!username) {
             errorMsg.innerText = 'Please enter a username';
             return;
         }
         joinScreen.classList.add('hidden');
         gameScreen.classList.remove('hidden');
-        socket.emit('joinGame', username);
+        socket.emit('joinGame', { username: username, password: password });
         requestAnimationFrame(gameLoop);
     };
     
-    // Server events
     socket.on('currentPlayers', (serverPlayers) => {
         players = serverPlayers;
         for (const id in players) {
@@ -227,34 +224,33 @@
                 myId = id;
                 myPlayer = players[id];
                 if (myPlayer.isAdmin) addChatMessage('System', '👑 You are ADMIN! Type /help', true);
-                document.getElementById('adminName').innerText = myPlayer.username;
+                document.getElementById('adminName').innerHTML = myPlayer.username;
             }
         }
     });
     
-    socket.on('currentOrbs', (serverOrbs) => {
-        orbs = serverOrbs;
+    socket.on('nameRejected', (msg) => {
+        alert(msg);
+        window.location.reload();
     });
     
+    socket.on('currentOrbs', (serverOrbs) => { orbs = serverOrbs; });
     socket.on('newPlayer', (playerData) => {
         players[playerData.id] = playerData;
         addChatMessage('System', `${playerData.username} joined!`, true);
     });
-    
     socket.on('playerMoved', (playerData) => {
         if (players[playerData.id]) {
             players[playerData.id].x = playerData.x;
             players[playerData.id].y = playerData.y;
         }
     });
-    
     socket.on('playerDisconnected', (playerId) => {
         if (players[playerId]) {
             addChatMessage('System', `${players[playerId].username} left`, true);
             delete players[playerId];
         }
     });
-    
     socket.on('leaderboardUpdate', (leaderboard) => {
         let html = '';
         for (let i = 0; i < leaderboard.length; i++) {
@@ -264,7 +260,6 @@
         }
         leaderboardList.innerHTML = html;
     });
-    
     socket.on('scoreUpdate', (data) => {
         if (players[data.id]) {
             players[data.id].score = data.score;
@@ -276,20 +271,16 @@
             if (myPlayer) myPlayer.radius = data.radius;
         }
     });
-    
     socket.on('orbCollected', (orbId) => {
         const index = orbs.findIndex(o => o.id === orbId);
         if (index !== -1) orbs.splice(index, 1);
     });
-    
     socket.on('chatMessage', (data) => {
         addChatMessage(data.username, data.message, data.isSystem, data.isAdmin);
     });
-    
     socket.on('adminConfirm', (msg) => addChatMessage('System', msg, true));
     socket.on('kicked', (msg) => { alert(msg); window.location.reload(); });
     
-    // Mouse and movement
     canvas.addEventListener('mousemove', (e) => {
         if (!myPlayer) return;
         const rect = canvas.getBoundingClientRect();
@@ -343,8 +334,6 @@
         updateCamera();
         ctx.fillStyle = '#0a0f1e';
         ctx.fillRect(0, 0, canvas.width, canvas.height);
-        
-        // Draw orbs
         for (const orb of orbs) {
             const screenX = orb.x - cameraX;
             const screenY = orb.y - cameraY;
@@ -356,8 +345,6 @@
                 ctx.fill();
             }
         }
-        
-        // Draw other players
         for (const id in players) {
             if (id === myId) continue;
             const p = players[id];
@@ -374,8 +361,6 @@
                 ctx.fillText(p.username, screenX - 20, screenY - 15);
             }
         }
-        
-        // Draw my player
         const myScreenX = myPlayer.x - cameraX;
         const myScreenY = myPlayer.y - cameraY;
         ctx.beginPath();
@@ -401,6 +386,8 @@
         }
         requestAnimationFrame(gameLoop);
     }
+    
+    setInterval(() => { if (orbs.length < 100) generateOrbs; }, 2000);
 </script>
 </body>
 </html>
