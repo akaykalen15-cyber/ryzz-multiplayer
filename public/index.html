@@ -77,6 +77,22 @@
         }
         #leaderboard { min-width: 180px; }
         #leaderboard h4 { margin-bottom: 5px; color: #fbbf24; }
+        #orbLegend {
+            background: #1f2937;
+            padding: 8px 15px;
+            border-radius: 8px;
+            color: white;
+            font-size: 12px;
+            display: flex;
+            gap: 15px;
+        }
+        .orb-dot {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 4px;
+        }
         #chatContainer {
             margin-top: 10px;
             background: #1f2937;
@@ -133,6 +149,12 @@
         <div id="ui">
             <div class="stats">🎯 Score: <span id="scoreValue">0</span></div>
             <div class="stats">👑 Admin: <span id="adminName"></span></div>
+            <div id="orbLegend">
+                <div><span class="orb-dot" style="background: #fbbf24;"></span> 10</div>
+                <div><span class="orb-dot" style="background: #22c55e;"></span> 25</div>
+                <div><span class="orb-dot" style="background: #3b82f6;"></span> 50</div>
+                <div><span class="orb-dot" style="background: #a855f7;"></span> 100</div>
+            </div>
             <div id="leaderboard">
                 <h4>🏆 LEADERBOARD</h4>
                 <div id="leaderboardList"></div>
@@ -350,7 +372,7 @@
         ctx.fillStyle = '#0a0f1e';
         ctx.fillRect(0, 0, canvas.width, canvas.height);
         
-        // Draw orbs
+        // Draw orbs with colors
         for (const orb of orbs) {
             const screenX = orb.x - cameraX;
             const screenY = orb.y - cameraY;
@@ -358,12 +380,19 @@
                 screenY + orb.radius > 0 && screenY - orb.radius < canvas.height) {
                 ctx.beginPath();
                 ctx.arc(screenX, screenY, orb.radius, 0, Math.PI * 2);
-                ctx.fillStyle = '#fbbf24';
+                ctx.fillStyle = orb.color || '#fbbf24';
                 ctx.fill();
+                // Add a subtle glow for rare orbs
+                if (orb.value >= 50) {
+                    ctx.shadowBlur = 8;
+                    ctx.shadowColor = orb.color;
+                    ctx.fill();
+                    ctx.shadowBlur = 0;
+                }
             }
         }
         
-        // Draw other players (all red, no crown)
+        // Draw other players (all red)
         for (const id in players) {
             if (id === myId) continue;
             const p = players[id];
@@ -381,7 +410,7 @@
             }
         }
         
-        // Draw my player (blue, no crown)
+        // Draw my player (blue)
         const myScreenX = myPlayer.x - cameraX;
         const myScreenY = myPlayer.y - cameraY;
         ctx.beginPath();
@@ -394,7 +423,6 @@
         ctx.fillStyle = '#ffffff';
         ctx.font = `bold ${Math.floor(myPlayer.radius * 0.6)}px Arial`;
         ctx.fillText(myPlayer.username, myScreenX - 18, myScreenY - 12);
-        // NO CROWN HERE
     }
     
     function gameLoop() {
