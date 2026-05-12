@@ -198,14 +198,24 @@
     
     function sendChat() {
         const text = chatInput.value.trim();
-        if (!text) return;
+        if (text === "") return;
+        
+        // Send to server
         socket.emit('chatMessage', { message: text });
-        chatInput.value = '';
+        
+        // Clear input and refocus
+        chatInput.value = "";
         chatInput.focus();
     }
     
+    // Event listeners
     chatSend.onclick = sendChat;
-    chatInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') sendChat(); });
+    chatInput.addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            sendChat();
+        }
+    });
     
     function generateOrbs(count) {
         for (let i = 0; i < count; i++) {
@@ -323,7 +333,7 @@
             myPlayer.y += (dy / distance) * speed;
         }
         myPlayer.x = Math.min(Math.max(myPlayer.x, myPlayer.radius + 5), 2400 - myPlayer.radius - 5);
-        myPlayer.y = Math.min(Math.max(myPlayer.y, myPlayer.radius + 5), 1600 - myPlayer.radius - 5);
+        myPlayer.y = Math.min(Math.max(myPlayer.y, myPlayer.radius + 5), 2400 - myPlayer.radius - 5);
         socket.emit('playerMovement', { x: myPlayer.x, y: myPlayer.y });
     }
     
