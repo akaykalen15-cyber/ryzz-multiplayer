@@ -7,22 +7,43 @@ const app = express();
 const server = http.createServer(app);
 const io = socketIO(server);
 
-// Admin username - YOU!
 const ADMIN_NAME = 'RYZZ';
 
 app.use(express.static(path.join(__dirname, 'public')));
 
 let players = {};
-let leaderboard = [];
 
-// Game constants
 const MAP_WIDTH = 2400;
 const MAP_HEIGHT = 1600;
+
+// Store orbs on server
+let orbs = [];
+
+function generateOrbs(count) {
+    for (let i = 0; i < count; i++) {
+        orbs.push({
+            id: Math.random().toString(36).substr(2, 8),
+            x: Math.random() * MAP_WIDTH,
+            y: Math.random() * MAP_HEIGHT,
+            radius: 6,
+            value: 10
+        });
+    }
+}
+
+// Initial orbs
+generateOrbs(80);
+
+// Respawn orbs over time
+setInterval(() => {
+    if (orbs.length < 60) {
+        generateOrbs(10);
+    }
+}, 3000);
 
 io.on('connection', (socket) => {
     console.log('Player connected:', socket.id);
 
-    // Player joins with username
     socket.on('joinGame', (username) => {
         let isAdmin = (username === ADMIN_NAME);
         
@@ -37,23 +58,25 @@ io.on('connection', (socket) => {
             godMode: false
         };
 
-        // Send current players to new player
+        // Send orbs to new player
+        socket.emit('currentOrbs', orbs);
+        
+        // Send current players
         socket.emit('currentPlayers', players);
         
         // Tell everyone about new player
         socket.broadcast.emit('newPlayer', players[socket.id]);
         
-        // Update leaderboard for everyone
+        // Update leaderboard
         updateLeaderboard();
         
         if (isAdmin) {
             socket.emit('adminConfirm', '👑 You are ADMIN! Type /help for commands');
         }
         
-        console.log(`${username} joined the game${isAdmin ? ' as ADMIN!' : ''}`);
+        console.log(`${username} joined${isAdmin ? ' as ADMIN' : ''}`);
     });
 
-    // Handle player movement
     socket.on('playerMovement', (data) => {
         if (players[socket.id]) {
             players[socket.id].x = data.x;
@@ -62,17 +85,40 @@ io.on('connection', (socket) => {
         }
     });
 
-    // Handle chat message
+    socket.on('collectOrb', (orbId) => {
+        if (!players[socket.id]) return;
+        
+        // Find and remove the orb
+        const orbIndex = orbs.findIndex(o => o.id === orbId);
+        if (orbIndex !== -1) {
+            orbs.splice(orbIndex, 1);
+            
+            // Add score
+            players[socket.id].score += 10;
+            players[socket.id].radius = Math.min(80, 20 + Math.floor(players[socket.id].score / 50));
+            
+            // Update everyone
+            updateLeaderboard();
+            io.emit('scoreUpdate', {
+                id: socket.id,
+                score: players[socket.id].score,
+                radius: players[socket.id].radius
+            });
+            
+            // Tell everyone about removed orb
+            io.emit('orbCollected', orbId);
+        }
+    });
+
     socket.on('chatMessage', (data) => {
         if (!players[socket.id]) return;
         
-        let sender = players[socket.id];
+        const sender = players[socket.id];
         
-        // Check for admin commands
         if (data.message.startsWith('/') && sender.isAdmin) {
             processAdminCommand(socket, data.message);
         } else {
-            // Broadcast chat to everyone
+            // Broadcast to ALL players including sender
             io.emit('chatMessage', {
                 username: sender.username,
                 message: data.message,
@@ -82,21 +128,6 @@ io.on('connection', (socket) => {
         }
     });
 
-    // Handle orb collection (score update)
-    socket.on('collectOrb', (value) => {
-        if (players[socket.id]) {
-            players[socket.id].score += value;
-            players[socket.id].radius = Math.min(80, 20 + Math.floor(players[socket.id].score / 50));
-            updateLeaderboard();
-            io.emit('scoreUpdate', {
-                id: socket.id,
-                score: players[socket.id].score,
-                radius: players[socket.id].radius
-            });
-        }
-    });
-
-    // Handle player disconnect
     socket.on('disconnect', () => {
         if (players[socket.id]) {
             io.emit('playerDisconnected', socket.id);
@@ -117,78 +148,62 @@ function updateLeaderboard() {
         });
     }
     list.sort((a, b) => b.score - a.score);
-    leaderboard = list.slice(0, 10);
-    io.emit('leaderboardUpdate', leaderboard);
+    io.emit('leaderboardUpdate', list.slice(0, 10));
 }
 
 function processAdminCommand(socket, command) {
-    let parts = command.trim().split(' ');
-    let cmd = parts[0].toLowerCase();
-    let adminName = players[socket.id].username;
+    const parts = command.trim().split(' ');
+    const cmd = parts[0].toLowerCase();
+    const adminName = players[socket.id].username;
     
-    if (cmd === '/help') {
-        socket.emit('chatMessage', {
-            username: 'System',
-            message: 'Commands: /kick [name], /clear, /god, /heal, /list',
-            isSystem: true,
-            isAdmin: false
-        });
-    }
-    else if (cmd === '/kick') {
-        if (parts.length < 2) {
-            socket.emit('chatMessage', { username: 'System', message: 'Usage: /kick [username]', isSystem: true });
-            return;
-        }
-        let targetName = parts.slice(1).join(' ');
-        if (targetName === ADMIN_NAME) {
-            socket.emit('chatMessage', { username: 'System', message: 'You cannot kick yourself!', isSystem: true });
-            return;
-        }
-        for (let id in players) {
-            if (players[id].username === targetName) {
-                io.to(id).emit('kicked', `You were kicked by admin ${adminName}`);
-                io.sockets.sockets.get(id)?.disconnect();
-                delete players[id];
-                io.emit('chatMessage', { username: 'System', message: `🔨 ${targetName} was kicked by ${adminName}`, isSystem: true });
-                updateLeaderboard();
-                break;
+    switch(cmd) {
+        case '/help':
+            socket.emit('chatMessage', { username: 'System', message: 'Commands: /kick [name], /clear, /god, /list, /orbs', isSystem: true });
+            break;
+        case '/kick':
+            if (parts.length < 2) {
+                socket.emit('chatMessage', { username: 'System', message: 'Usage: /kick [username]', isSystem: true });
+                return;
             }
-        }
-    }
-    else if (cmd === '/clear') {
-        for (let id in players) {
-            if (!players[id].isAdmin) {
-                io.to(id).emit('kicked', 'Server cleared by admin');
-                io.sockets.sockets.get(id)?.disconnect();
-                delete players[id];
+            const targetName = parts.slice(1).join(' ');
+            for (let id in players) {
+                if (players[id].username === targetName && !players[id].isAdmin) {
+                    io.to(id).emit('kicked', `Kicked by admin ${adminName}`);
+                    io.sockets.sockets.get(id)?.disconnect();
+                    delete players[id];
+                    io.emit('chatMessage', { username: 'System', message: `${targetName} was kicked`, isSystem: true });
+                    updateLeaderboard();
+                    break;
+                }
             }
-        }
-        io.emit('chatMessage', { username: 'System', message: `🗑️ All non-admin players were cleared by ${adminName}`, isSystem: true });
-        updateLeaderboard();
-    }
-    else if (cmd === '/god') {
-        players[socket.id].godMode = !players[socket.id].godMode;
-        let status = players[socket.id].godMode ? 'ACTIVATED' : 'DEACTIVATED';
-        socket.emit('chatMessage', { username: 'System', message: `🛡️ GOD MODE ${status}!`, isSystem: true });
-        io.emit('playerGodMode', { id: socket.id, godMode: players[socket.id].godMode });
-    }
-    else if (cmd === '/heal') {
-        if (players[socket.id].radius < 20) {
-            players[socket.id].radius = 20;
-            socket.emit('chatMessage', { username: 'System', message: '💚 You have been healed!', isSystem: true });
-        } else {
-            socket.emit('chatMessage', { username: 'System', message: '💚 You are already healthy!', isSystem: true });
-        }
-    }
-    else if (cmd === '/list') {
-        let playerList = [];
-        for (let id in players) {
-            playerList.push(`${players[id].username}${players[id].isAdmin ? ' 👑' : ''} (${players[id].score} pts)`);
-        }
-        socket.emit('chatMessage', { username: 'System', message: `Online: ${playerList.join(', ')}`, isSystem: true });
-    }
-    else {
-        socket.emit('chatMessage', { username: 'System', message: `Unknown command: ${cmd}. Type /help`, isSystem: true });
+            break;
+        case '/clear':
+            for (let id in players) {
+                if (!players[id].isAdmin) {
+                    io.to(id).emit('kicked', 'Server cleared by admin');
+                    io.sockets.sockets.get(id)?.disconnect();
+                    delete players[id];
+                }
+            }
+            io.emit('chatMessage', { username: 'System', message: 'All non-admin players cleared', isSystem: true });
+            updateLeaderboard();
+            break;
+        case '/god':
+            players[socket.id].godMode = !players[socket.id].godMode;
+            socket.emit('chatMessage', { username: 'System', message: `God mode ${players[socket.id].godMode ? 'ON' : 'OFF'}`, isSystem: true });
+            break;
+        case '/list':
+            let list = [];
+            for (let id in players) {
+                list.push(`${players[id].username}${players[id].isAdmin ? '👑' : ''} (${players[id].score})`);
+            }
+            socket.emit('chatMessage', { username: 'System', message: `Online: ${list.join(', ')}`, isSystem: true });
+            break;
+        case '/orbs':
+            socket.emit('chatMessage', { username: 'System', message: `${orbs.length} orbs on the map`, isSystem: true });
+            break;
+        default:
+            socket.emit('chatMessage', { username: 'System', message: `Unknown command: ${cmd}. Type /help`, isSystem: true });
     }
 }
 
