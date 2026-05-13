@@ -22,18 +22,16 @@ let orbs = [];
 let powerups = [];
 
 const powerupTypes = [
-    { type: 'speed', color: '#00ffff', value: 'speed', name: '🚀 Speed Boost', duration: 8000 },
-    { type: 'shield', color: '#ffd700', value: 'shield', name: '🛡️ Shield', duration: 8000 },
-    { type: 'magnet', color: '#a855f7', value: 'magnet', name: '🧲 Magnet', duration: 10000 },
-    { type: 'vision', color: '#22c55e', value: 'vision', name: '👁️ Vision', duration: 5000 },
-    { type: 'split', color: '#f97316', value: 'split', name: '💥 Split', duration: 0 }
+    { type: 'speed', color: '#00ffff', name: '🚀 Speed', duration: 8000 },
+    { type: 'shield', color: '#ffd700', name: '🛡️ Shield', duration: 8000 },
+    { type: 'magnet', color: '#a855f7', name: '🧲 Magnet', duration: 10000 },
 ];
 
 const orbTypes = [
-    { color: '#fbbf24', value: 10, name: 'yellow', weight: 45 },
-    { color: '#22c55e', value: 25, name: 'green', weight: 25 },
-    { color: '#3b82f6', value: 50, name: 'blue', weight: 18 },
-    { color: '#a855f7', value: 100, name: 'purple', weight: 12 }
+    { color: '#fbbf24', value: 10, weight: 45 },
+    { color: '#22c55e', value: 25, weight: 25 },
+    { color: '#3b82f6', value: 50, weight: 18 },
+    { color: '#a855f7', value: 100, weight: 12 }
 ];
 
 function getRandomOrbType() {
@@ -54,48 +52,70 @@ function generateOrbs(count) {
             id: Math.random().toString(36).substr(2, 8),
             x: Math.random() * MAP_WIDTH,
             y: Math.random() * MAP_HEIGHT,
-            radius: 6,
+            radius: 8,
             value: orbType.value,
             color: orbType.color,
-            type: orbType.name
         });
     }
 }
 
 function generatePowerup() {
-    const powerupType = powerupTypes[Math.floor(Math.random() * powerupTypes.length)];
+    const type = powerupTypes[Math.floor(Math.random() * powerupTypes.length)];
     powerups.push({
         id: Math.random().toString(36).substr(2, 8),
         x: Math.random() * MAP_WIDTH,
         y: Math.random() * MAP_HEIGHT,
-        radius: 10,
-        ...powerupType
+        radius: 12,
+        ...type
     });
 }
 
 function generateBot() {
-    const botNames = ['BotAlpha', 'BotBeta', 'BotGamma', 'BotDelta', 'BotEcho', 'BotZeta', 'BotTheta', 'BotSigma'];
+    const botNames = ['Alpha', 'Beta', 'Gamma', 'Delta', 'Echo', 'Zeta', 'Theta', 'Sigma'];
     const name = botNames[Math.floor(Math.random() * botNames.length)] + Math.floor(Math.random() * 99);
-    
     const botId = 'bot_' + Math.random().toString(36).substr(2, 8);
     bots[botId] = {
         id: botId,
         username: name,
         x: Math.random() * MAP_WIDTH,
         y: Math.random() * MAP_HEIGHT,
-        radius: 15,
-        score: 100,
+        radius: 18,
+        score: 80,
         isBot: true,
-        isAdmin: false,
-        activePowerup: null,
-        powerupEndTime: 0
     };
 }
 
-function moveBots() {
+// Initialize game
+generateOrbs(250);
+for (let i = 0; i < 8; i++) generateBot();
+for (let i = 0; i < 5; i++) generatePowerup();
+
+// Orb respawn - FAST
+setInterval(() => {
+    const needed = Math.max(50, 200 - orbs.length);
+    if (needed > 0) {
+        generateOrbs(Math.min(30, needed));
+        console.log(`Orbs: ${orbs.length}`);
+    }
+}, 1500);
+
+// Powerup respawn
+setInterval(() => {
+    if (powerups.length < 6) generatePowerup();
+}, 12000);
+
+// Bot respawn
+setInterval(() => {
+    if (Object.keys(bots).length < 6) generateBot();
+}, 10000);
+
+// Bot AI movement
+setInterval(() => {
     for (const id in bots) {
         const bot = bots[id];
+        let moveX = 0, moveY = 0;
         
+        // Find nearest orb
         let nearestOrb = null;
         let nearestDist = Infinity;
         for (const orb of orbs) {
@@ -106,6 +126,7 @@ function moveBots() {
             }
         }
         
+        // Find nearest player
         let nearestPlayer = null;
         let playerDist = Infinity;
         for (const pid in players) {
@@ -117,38 +138,39 @@ function moveBots() {
             }
         }
         
-        let moveX = 0, moveY = 0;
-        
-        if (nearestPlayer && playerDist < 250) {
+        // Chase or run
+        if (nearestPlayer && playerDist < 300) {
             if (bot.radius > nearestPlayer.radius + 10) {
                 const dx = nearestPlayer.x - bot.x;
                 const dy = nearestPlayer.y - bot.y;
-                const dist = Math.hypot(dx, dy);
-                if (dist > 0) {
-                    moveX = (dx / dist) * 4;
-                    moveY = (dy / dist) * 4;
+                const len = Math.hypot(dx, dy);
+                if (len > 0) {
+                    moveX = (dx / len) * 5;
+                    moveY = (dy / len) * 5;
                 }
             } else if (nearestPlayer.radius > bot.radius + 10) {
                 const dx = bot.x - nearestPlayer.x;
                 const dy = bot.y - nearestPlayer.y;
-                const dist = Math.hypot(dx, dy);
-                if (dist > 0) {
-                    moveX = (dx / dist) * 5;
-                    moveY = (dy / dist) * 5;
+                const len = Math.hypot(dx, dy);
+                if (len > 0) {
+                    moveX = (dx / len) * 6;
+                    moveY = (dy / len) * 6;
                 }
             }
         }
         
+        // If no player action, go to orb
         if (moveX === 0 && moveY === 0 && nearestOrb) {
             const dx = nearestOrb.x - bot.x;
             const dy = nearestOrb.y - bot.y;
-            const dist = Math.hypot(dx, dy);
-            if (dist > 0) {
-                moveX = (dx / dist) * 3;
-                moveY = (dy / dist) * 3;
+            const len = Math.hypot(dx, dy);
+            if (len > 0) {
+                moveX = (dx / len) * 4;
+                moveY = (dy / len) * 4;
             }
         }
         
+        // Random wandering
         moveX += (Math.random() - 0.5) * 2;
         moveY += (Math.random() - 0.5) * 2;
         
@@ -157,79 +179,61 @@ function moveBots() {
         bot.x = Math.min(Math.max(bot.x, bot.radius + 5), MAP_WIDTH - bot.radius - 5);
         bot.y = Math.min(Math.max(bot.y, bot.radius + 5), MAP_HEIGHT - bot.radius - 5);
         
+        // Bot collects orbs
         for (let i = 0; i < orbs.length; i++) {
             const orb = orbs[i];
-            const dist = Math.hypot(bot.x - orb.x, bot.y - orb.y);
-            if (dist < bot.radius + orb.radius) {
-                orbs.splice(i, 1);
+            if (Math.hypot(bot.x - orb.x, bot.y - orb.y) < bot.radius + orb.radius) {
                 bot.score += orb.value;
-                bot.radius = 15 + Math.floor(bot.score / 100);
+                bot.radius = 18 + Math.floor(bot.score / 80);
+                orbs.splice(i, 1);
                 i--;
             }
         }
     }
-}
+    io.emit('updateBots', bots);
+}, 60);
 
-function checkBotPlayerCollisions() {
+// Bot vs Player collisions
+setInterval(() => {
     for (const botId in bots) {
         const bot = bots[botId];
         for (const playerId in players) {
             const player = players[playerId];
             const dist = Math.hypot(bot.x - player.x, bot.y - player.y);
-            const combinedRadius = bot.radius + player.radius;
-            
-            if (dist < combinedRadius) {
-                const botHasShield = bot.activePowerup === 'shield' && Date.now() < bot.powerupEndTime;
+            if (dist < bot.radius + player.radius) {
                 const playerHasShield = player.activePowerup === 'shield' && Date.now() < player.powerupEndTime;
-                
                 if (bot.radius > player.radius && !player.isAdmin && !playerHasShield) {
-                    const pointsGained = Math.floor(player.score / 2) + 50;
-                    bot.score += pointsGained;
-                    bot.radius = 15 + Math.floor(bot.score / 100);
-                    player.score = Math.floor(player.score / 3);
-                    player.radius = 20 + Math.floor(player.score / 50);
-                    player.x = Math.random() * MAP_WIDTH;
-                    player.y = Math.random() * MAP_HEIGHT;
+                    // Bot eats player
+                    const gain = Math.floor(player.score / 3) + 60;
+                    bot.score += gain;
+                    bot.radius = 18 + Math.floor(bot.score / 80);
+                    player.score = Math.max(0, Math.floor(player.score / 2) - 20);
+                    player.radius = Math.max(18, 20 + Math.floor(player.score / 50));
+                    player.x = Math.random() * (MAP_WIDTH - 200) + 100;
+                    player.y = Math.random() * (MAP_HEIGHT - 200) + 100;
                     io.emit('playerMoved', player);
                     io.emit('chatMessage', { username: 'System', message: `🤖 ${bot.username} ate ${player.username}!`, isSystem: true });
                     updateLeaderboard();
-                } else if (player.radius > bot.radius && !botHasShield) {
-                    const pointsGained = Math.floor(bot.score / 2) + 50;
-                    player.score += pointsGained;
+                } else if (player.radius > bot.radius && !playerHasShield) {
+                    // Player eats bot
+                    const gain = Math.floor(bot.score / 2) + 50;
+                    player.score += gain;
                     player.radius = 20 + Math.floor(player.score / 50);
+                    io.emit('chatMessage', { username: 'System', message: `🍽️ ${player.username} ate ${bot.username}! +${gain}`, isSystem: true });
                     delete bots[botId];
                     generateBot();
-                    io.emit('chatMessage', { username: 'System', message: `🍽️ ${player.username} ate bot ${bot.username}!`, isSystem: true });
                     updateLeaderboard();
                     break;
+                } else {
+                    // Same size bounce
+                    const angle = Math.atan2(player.y - bot.y, player.x - bot.x);
+                    player.x += Math.cos(angle) * 20;
+                    player.y += Math.sin(angle) * 20;
                 }
             }
         }
     }
-}
-
-generateOrbs(200);
-for (let i = 0; i < 6; i++) generateBot();
-for (let i = 0; i < 4; i++) generatePowerup();
-
-setInterval(() => {
-    moveBots();
-    checkBotPlayerCollisions();
-    io.emit('updateBots', bots);
-}, 50);
-
-setInterval(() => {
-    if (orbs.length < 150) generateOrbs(40);
-    else generateOrbs(15);
-}, 1000);
-
-setInterval(() => {
-    if (powerups.length < 5) generatePowerup();
-}, 10000);
-
-setInterval(() => {
-    if (Object.keys(bots).length < 4) generateBot();
-}, 8000);
+}, 60);
 
 io.on('connection', (socket) => {
     console.log('Player connected:', socket.id);
@@ -237,43 +241,48 @@ io.on('connection', (socket) => {
     socket.on('joinGame', (data) => {
         const username = data.username;
         const password = data.password || '';
-        let isAdmin = (username === ADMIN_NAME && password === ADMIN_PASSWORD);
+        const isAdmin = (username === ADMIN_NAME && password === ADMIN_PASSWORD);
         
         if (username === ADMIN_NAME && !isAdmin) {
             socket.emit('nameRejected', 'Invalid admin credentials!');
             return;
         }
         
-        let nameTaken = false;
+        // Check duplicate name
         for (let id in players) {
-            if (players[id].username === username) { nameTaken = true; break; }
-        }
-        if (nameTaken) {
-            socket.emit('nameRejected', 'Username already taken!');
-            return;
+            if (players[id].username === username) {
+                socket.emit('nameRejected', 'Username taken!');
+                return;
+            }
         }
         
-        players[socket.id] = {
+        const newPlayer = {
             id: socket.id,
             username: username,
-            x: Math.random() * MAP_WIDTH,
-            y: Math.random() * MAP_HEIGHT,
+            x: Math.random() * (MAP_WIDTH - 400) + 200,
+            y: Math.random() * (MAP_HEIGHT - 400) + 200,
             radius: 20,
             score: 0,
             isAdmin: isAdmin,
-            godMode: false,
             activePowerup: null,
             powerupEndTime: 0,
             speedMultiplier: 1
         };
-
+        
+        players[socket.id] = newPlayer;
+        
         socket.emit('currentOrbs', orbs);
         socket.emit('currentPowerups', powerups);
         socket.emit('currentPlayers', players);
         socket.emit('currentBots', bots);
-        socket.broadcast.emit('newPlayer', players[socket.id]);
+        socket.broadcast.emit('newPlayer', newPlayer);
         updateLeaderboard();
-        if (isAdmin) socket.emit('adminConfirm', '👑 You are ADMIN!');
+        
+        if (isAdmin) {
+            socket.emit('adminConfirm', '👑 You are ADMIN! Type /help');
+        }
+        
+        console.log(`${username} joined (${isAdmin ? 'ADMIN' : 'player'})`);
     });
 
     socket.on('playerMovement', (data) => {
@@ -290,35 +299,38 @@ io.on('connection', (socket) => {
         if (orbIndex !== -1) {
             const orb = orbs[orbIndex];
             orbs.splice(orbIndex, 1);
+            
             players[socket.id].score += orb.value;
             players[socket.id].radius = 20 + Math.floor(players[socket.id].score / 50);
+            
             updateLeaderboard();
-            io.emit('scoreUpdate', { id: socket.id, score: players[socket.id].score, radius: players[socket.id].radius });
+            io.emit('scoreUpdate', {
+                id: socket.id,
+                score: players[socket.id].score,
+                radius: players[socket.id].radius
+            });
             io.emit('orbCollected', orbId);
         }
     });
 
     socket.on('collectPowerup', (powerupId) => {
         if (!players[socket.id]) return;
-        const powerupIndex = powerups.findIndex(p => p.id === powerupId);
-        if (powerupIndex !== -1) {
-            const powerup = powerups[powerupIndex];
-            powerups.splice(powerupIndex, 1);
+        const index = powerups.findIndex(p => p.id === powerupId);
+        if (index !== -1) {
+            const powerup = powerups[index];
+            powerups.splice(index, 1);
+            
             const player = players[socket.id];
             player.activePowerup = powerup.type;
             player.powerupEndTime = Date.now() + powerup.duration;
             
             if (powerup.type === 'speed') {
                 player.speedMultiplier = 2;
-                setTimeout(() => { if (players[socket.id]) players[socket.id].speedMultiplier = 1; }, powerup.duration);
-            } else if (powerup.type === 'split') {
-                player.score += 50;
-                player.radius = 20 + Math.floor(player.score / 50);
-                updateLeaderboard();
-                io.emit('scoreUpdate', { id: socket.id, score: player.score, radius: player.radius });
-            } else {
-                setTimeout(() => { if (players[socket.id]) players[socket.id].activePowerup = null; }, powerup.duration);
+                setTimeout(() => {
+                    if (players[socket.id]) players[socket.id].speedMultiplier = 1;
+                }, powerup.duration);
             }
+            
             io.emit('powerupCollected', powerupId);
             io.emit('chatMessage', { username: 'System', message: `⚡ ${player.username} got ${powerup.name}!`, isSystem: true });
             updateLeaderboard();
@@ -329,21 +341,24 @@ io.on('connection', (socket) => {
         if (!players[socket.id] || !players[targetId]) return;
         const eater = players[socket.id];
         const target = players[targetId];
+        
         const targetHasShield = target.activePowerup === 'shield' && Date.now() < target.powerupEndTime;
         
         if (eater.radius > target.radius && !target.isAdmin && !targetHasShield) {
-            const pointsGained = Math.floor(target.score / 2) + 50;
-            eater.score += pointsGained;
+            const gain = Math.floor(target.score / 2) + 50;
+            eater.score += gain;
             eater.radius = 20 + Math.floor(eater.score / 50);
-            target.score = Math.floor(target.score / 3);
-            target.radius = 20 + Math.floor(target.score / 50);
-            target.x = Math.random() * MAP_WIDTH;
-            target.y = Math.random() * MAP_HEIGHT;
+            
+            target.score = Math.max(0, Math.floor(target.score / 3) - 20);
+            target.radius = Math.max(18, 20 + Math.floor(target.score / 50));
+            target.x = Math.random() * (MAP_WIDTH - 400) + 200;
+            target.y = Math.random() * (MAP_HEIGHT - 400) + 200;
+            
             updateLeaderboard();
             io.emit('scoreUpdate', { id: socket.id, score: eater.score, radius: eater.radius });
             io.emit('scoreUpdate', { id: targetId, score: target.score, radius: target.radius });
             io.emit('playerMoved', target);
-            io.emit('chatMessage', { username: 'System', message: `🍽️ ${eater.username} ate ${target.username}!`, isSystem: true });
+            io.emit('chatMessage', { username: 'System', message: `🍽️ ${eater.username} ate ${target.username}! +${gain}`, isSystem: true });
         }
     });
 
@@ -353,7 +368,12 @@ io.on('connection', (socket) => {
         if (data.message.startsWith('/') && sender.isAdmin) {
             processAdminCommand(socket, data.message);
         } else {
-            io.emit('chatMessage', { username: sender.username, message: data.message, isAdmin: sender.isAdmin, isSystem: false });
+            io.emit('chatMessage', {
+                username: sender.username,
+                message: data.message,
+                isAdmin: sender.isAdmin,
+                isSystem: false
+            });
         }
     });
 
@@ -362,14 +382,15 @@ io.on('connection', (socket) => {
             io.emit('playerDisconnected', socket.id);
             delete players[socket.id];
             updateLeaderboard();
+            console.log('Player disconnected:', socket.id);
         }
     });
 });
 
 function updateLeaderboard() {
-    let list = [];
-    for (let id in players) list.push({ username: players[id].username, score: players[id].score, isAdmin: players[id].isAdmin });
-    for (let id in bots) list.push({ username: '🤖 ' + bots[id].username, score: bots[id].score, isAdmin: false });
+    const list = [];
+    for (const id in players) list.push({ username: players[id].username, score: players[id].score, isAdmin: players[id].isAdmin });
+    for (const id in bots) list.push({ username: '🤖 ' + bots[id].username, score: bots[id].score, isAdmin: false });
     list.sort((a, b) => b.score - a.score);
     io.emit('leaderboardUpdate', list.slice(0, 10));
 }
@@ -380,23 +401,25 @@ function processAdminCommand(socket, command) {
     
     switch(cmd) {
         case '/help':
-            socket.emit('chatMessage', { username: 'System', message: 'Commands: /kick, /clear, /god, /list, /orbs, /bots, /powerups', isSystem: true });
+            socket.emit('chatMessage', { username: 'System', message: 'Commands: /kick [name], /clear, /god, /list, /orbs, /bots', isSystem: true });
             break;
         case '/kick':
             if (parts.length < 2) return;
-            const targetName = parts.slice(1).join(' ');
-            for (let id in players) {
-                if (players[id].username === targetName && !players[id].isAdmin) {
+            const target = parts.slice(1).join(' ');
+            for (const id in players) {
+                if (players[id].username === target && !players[id].isAdmin) {
                     io.to(id).emit('kicked', 'Kicked by admin');
                     delete players[id];
-                    io.emit('chatMessage', { username: 'System', message: `${targetName} was kicked`, isSystem: true });
+                    io.emit('chatMessage', { username: 'System', message: `${target} was kicked`, isSystem: true });
                     updateLeaderboard();
                     break;
                 }
             }
             break;
         case '/clear':
-            for (let id in players) if (!players[id].isAdmin) delete players[id];
+            for (const id in players) {
+                if (!players[id].isAdmin) delete players[id];
+            }
             io.emit('chatMessage', { username: 'System', message: 'All non-admin players cleared', isSystem: true });
             updateLeaderboard();
             break;
@@ -405,8 +428,8 @@ function processAdminCommand(socket, command) {
             socket.emit('chatMessage', { username: 'System', message: `God mode ${players[socket.id].godMode ? 'ON' : 'OFF'}`, isSystem: true });
             break;
         case '/list':
-            let list = [];
-            for (let id in players) list.push(`${players[id].username}${players[id].isAdmin ? '👑' : ''} (${players[id].score})`);
+            const list = [];
+            for (const id in players) list.push(`${players[id].username}${players[id].isAdmin ? '👑' : ''} (${players[id].score})`);
             socket.emit('chatMessage', { username: 'System', message: `Online: ${list.join(', ')}`, isSystem: true });
             break;
         case '/orbs':
@@ -415,15 +438,14 @@ function processAdminCommand(socket, command) {
         case '/bots':
             socket.emit('chatMessage', { username: 'System', message: `${Object.keys(bots).length} bots active`, isSystem: true });
             break;
-        case '/powerups':
-            socket.emit('chatMessage', { username: 'System', message: `${powerups.length} power-ups on map`, isSystem: true });
-            break;
         default:
-            socket.emit('chatMessage', { username: 'System', message: 'Unknown command. Type /help', isSystem: true });
+            socket.emit('chatMessage', { username: 'System', message: 'Type /help for commands', isSystem: true });
     }
 }
 
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, '0.0.0.0', () => {
     console.log(`✅ RYZZ.io server running on port ${PORT}`);
+    console.log(`👑 Admin: ${ADMIN_NAME}`);
+    console.log(`🎯 Orbs: ${orbs.length} | Bots: ${Object.keys(bots).length}`);
 });
