@@ -32,7 +32,7 @@ let orbs = [];
 const orbColors = ['#fbbf24', '#22c55e', '#3b82f6', '#a855f7'];
 const orbValues = [100, 200, 350, 500];
 
-const botNames = ['Alpha', 'Beta', 'Gamma', 'Delta', 'Echo', 'Zeta', 'Theta', 'Sigma', 'Omega', 'Nova', 'Rex', 'Luna', 'Orion', 'Atlas'];
+const botNames = ['Alpha', 'Beta', 'Gamma', 'Delta', 'Echo', 'Zeta', 'Theta', 'Sigma'];
 
 function getLevel(score) {
     if (score < 1000) return 1;
@@ -166,17 +166,19 @@ function generateOrbs(count) {
     }
 }
 
+// 🤖 EASIER BOT GENERATION
 function generateBot() {
     const name = botNames[Math.floor(Math.random() * botNames.length)] + Math.floor(Math.random() * 99);
     const botId = 'bot_' + Math.random().toString(36).substr(2, 8);
-    const startScore = 500;
+    // 🎯 EASIER: Lower starting score and smaller radius
+    const startScore = 200;  // Was 500
     const level = getLevel(startScore);
     bots[botId] = {
         id: botId,
         username: name,
         x: Math.random() * MAP_WIDTH,
         y: Math.random() * MAP_HEIGHT,
-        radius: 18,
+        radius: 15,  // Was 18
         score: startScore,
         level: level,
         title: getLevelTitle(level),
@@ -185,8 +187,9 @@ function generateBot() {
     };
 }
 
+// Initialize with FEWER bots (8 instead of 12)
 generateOrbs(600);
-for (let i = 0; i < 12; i++) {
+for (let i = 0; i < 8; i++) {
     generateBot();
 }
 
@@ -202,13 +205,15 @@ setInterval(() => {
     }
 }, 800);
 
+// 🤖 SLOWER BOT RESPAWN (15 seconds instead of 10)
 setInterval(() => {
     const botCount = Object.keys(bots).length;
-    if (botCount < 10) {
+    if (botCount < 6) {  // Keep at least 6 bots (was 10)
         generateBot();
     }
-}, 10000);
+}, 15000);
 
+// 🤖 EASIER BOT AI - Slower and shorter chase range
 setInterval(() => {
     for (const id in bots) {
         const bot = bots[id];
@@ -239,9 +244,11 @@ setInterval(() => {
         }
         
         let moveX = 0, moveY = 0;
-        const botSpeed = 5 * (bot.perks?.speedMultiplier || 1);
+        // 🎯 EASIER: Slower bot speed (3-4 instead of 5-6)
+        const botSpeed = 3.5 * (bot.perks?.speedMultiplier || 1);
         
-        if (nearestPlayer && playerDist < 122500) {
+        // 🎯 EASIER: Shorter chase range (250px instead of 350px)
+        if (nearestPlayer && playerDist < 62500) {  // 250^2
             const dist = Math.sqrt(playerDist);
             if (bot.radius > nearestPlayer.radius + 10) {
                 const dx = nearestPlayer.x - bot.x;
@@ -256,8 +263,9 @@ setInterval(() => {
                 const dy = bot.y - nearestPlayer.y;
                 const len = dist;
                 if (len > 0) {
-                    moveX = (dx / len) * (botSpeed * 1.2);
-                    moveY = (dy / len) * (botSpeed * 1.2);
+                    // 🎯 EASIER: Slower run away speed (5 instead of 7.5)
+                    moveX = (dx / len) * 5;
+                    moveY = (dy / len) * 5;
                 }
             }
         }
@@ -267,13 +275,13 @@ setInterval(() => {
             const dy = nearestOrb.y - bot.y;
             const len = Math.hypot(dx, dy);
             if (len > 0) {
-                moveX = (dx / len) * 4;
-                moveY = (dy / len) * 4;
+                moveX = (dx / len) * 3;
+                moveY = (dy / len) * 3;
             }
         }
         
-        moveX += (Math.random() - 0.5) * 2;
-        moveY += (Math.random() - 0.5) * 2;
+        moveX += (Math.random() - 0.5) * 1.5;
+        moveY += (Math.random() - 0.5) * 1.5;
         
         bot.x += moveX;
         bot.y += moveY;
@@ -304,6 +312,7 @@ setInterval(() => {
     io.emit('updateBots', bots);
 }, 40);
 
+// Bot vs player collisions
 setInterval(() => {
     for (const botId in bots) {
         const bot = bots[botId];
@@ -316,11 +325,10 @@ setInterval(() => {
             
             if (distSq < eatRange ** 2) {
                 if (bot.radius > player.radius && !player.isAdmin) {
-                    const gain = Math.floor((player.score / 3) + 200) * (bot.perks?.scoreMultiplier || 1);
+                    const gain = Math.floor((player.score / 3) + 100) * (bot.perks?.scoreMultiplier || 1);
                     bot.score += gain;
                     bot.radius = Math.min(100, 18 + Math.floor(bot.score / 500));
                     
-                    // 🔥 PLAYER LOSES 80% OF SCORE ON DEATH
                     player.score = Math.floor(player.score / 5);
                     player.radius = Math.max(20, 15 + Math.floor(player.score / 500));
                     player.x = Math.random() * MAP_WIDTH;
@@ -332,10 +340,10 @@ setInterval(() => {
                     player.perks = getPerks(newPlayerLevel);
                     
                     io.emit('playerMoved', player);
-                    io.emit('chatMessage', { username: 'System', message: `🤖 ${bot.username} (Lvl ${bot.level}) ate ${player.username}!`, isSystem: true });
+                    io.emit('chatMessage', { username: 'System', message: `🤖 ${bot.username} ate ${player.username}!`, isSystem: true });
                     updateLeaderboard();
                 } else if (player.radius > bot.radius) {
-                    const gain = Math.floor((bot.score / 2) + 200) * (player.perks?.scoreMultiplier || 1);
+                    const gain = Math.floor((bot.score / 2) + 100) * (player.perks?.scoreMultiplier || 1);
                     player.score += gain;
                     player.radius = Math.min(120, 20 + Math.floor(player.score / 500));
                     
@@ -443,14 +451,13 @@ io.on('connection', (socket) => {
         socket.emit('orbCollectionFailed', orbId);
     });
     
-    // 🔥 UPDATED EAT PLAYER WITH 80% SCORE LOSS
     socket.on('eatPlayer', (targetId) => {
         const eater = players[socket.id];
         const target = players[targetId];
         if (!eater || !target) return;
         
         if (eater.radius > target.radius && !target.isAdmin) {
-            const gain = Math.floor((target.score / 2) + 200) * (eater.perks?.scoreMultiplier || 1);
+            const gain = Math.floor((target.score / 2) + 100) * (eater.perks?.scoreMultiplier || 1);
             eater.score += gain;
             eater.radius = Math.min(120, 20 + Math.floor(eater.score / 500));
             
@@ -462,7 +469,6 @@ io.on('connection', (socket) => {
                 io.emit('chatMessage', { username: 'System', message: `🎉 ${eater.username} reached ${eater.title} (Level ${eater.level})!`, isSystem: true });
             }
             
-            // 🔥 PLAYER LOSES 80% OF SCORE ON DEATH (keeps 20%)
             target.score = Math.floor(target.score / 5);
             target.radius = Math.max(20, 15 + Math.floor(target.score / 500));
             target.x = Math.random() * MAP_WIDTH;
@@ -587,7 +593,8 @@ function updateLeaderboard() {
 
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, '0.0.0.0', () => {
-    console.log(`\n✅ RYZZ.io DEATH PENALTY server running!`);
+    console.log(`\n✅ RYZZ.io EASIER BOTS server running!`);
+    console.log(`🤖 Bot difficulty: EASIER (slower, smaller, less aggressive)`);
     console.log(`💀 Death penalty: Lose 80% of score (keep 20%)`);
     console.log(`💎 Orb values: 100, 200, 350, 500`);
     console.log(`🎯 Level perks enabled!`);
