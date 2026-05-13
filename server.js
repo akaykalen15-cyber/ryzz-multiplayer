@@ -14,12 +14,12 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 let players = {};
 
-const MAP_WIDTH = 2000;
-const MAP_HEIGHT = 2000;
+// 🗺️ MUCH LARGER MAP - 4000x4000 (was 2000x2000)
+const MAP_WIDTH = 4000;
+const MAP_HEIGHT = 4000;
 
 let orbs = [];
 
-// Generate orbs
 function generateOrbs(count) {
     for (let i = 0; i < count; i++) {
         orbs.push({
@@ -34,14 +34,16 @@ function generateOrbs(count) {
     console.log(`Total orbs: ${orbs.length}`);
 }
 
-generateOrbs(100);
+// Start with 300 orbs on large map
+generateOrbs(300);
 
-// Respawn orbs every 2 seconds
+// Faster orb respawn for large map
 setInterval(() => {
-    if (orbs.length < 80) {
-        generateOrbs(30);
+    if (orbs.length < 200) {
+        generateOrbs(50);
+        console.log(`Low on orbs (${orbs.length}), generated 50 more`);
     }
-}, 2000);
+}, 1500);
 
 io.on('connection', (socket) => {
     console.log('Player connected:', socket.id);
@@ -51,7 +53,6 @@ io.on('connection', (socket) => {
         const password = data.password || '';
         const isAdmin = (username === ADMIN_NAME && password === ADMIN_PASSWORD);
         
-        // Check for duplicate username
         for (let id in players) {
             if (players[id].username === username) {
                 socket.emit('nameRejected', 'Username already taken!');
@@ -69,17 +70,13 @@ io.on('connection', (socket) => {
             isAdmin: isAdmin
         };
         
-        // Send current state to new player
         socket.emit('currentOrbs', orbs);
         socket.emit('currentPlayers', players);
         socket.emit('adminConfirm', isAdmin);
-        
-        // Tell everyone about new player
         socket.broadcast.emit('newPlayer', players[socket.id]);
-        
         updateLeaderboard();
         
-        console.log(`${username} joined (Admin: ${isAdmin})`);
+        console.log(`${username} joined at (${players[socket.id].x.toFixed(0)}, ${players[socket.id].y.toFixed(0)})`);
     });
     
     socket.on('playerMovement', (data) => {
@@ -100,14 +97,11 @@ io.on('connection', (socket) => {
         const orb = orbs[orbIndex];
         orbs.splice(orbIndex, 1);
         
-        // Increase score
         player.score += orb.value;
-        // Increase radius (max 100)
-        player.radius = Math.min(100, 20 + Math.floor(player.score / 50));
+        player.radius = Math.min(120, 20 + Math.floor(player.score / 60));
         
-        console.log(`${player.username} collected orb! Score: ${player.score}, Radius: ${player.radius}`);
+        console.log(`${player.username} collected orb! Score: ${player.score}`);
         
-        // Broadcast updates
         updateLeaderboard();
         io.emit('scoreUpdate', {
             id: socket.id,
@@ -154,4 +148,5 @@ function updateLeaderboard() {
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, '0.0.0.0', () => {
     console.log(`✅ Server running on port ${PORT}`);
+    console.log(`🗺️ Map size: ${MAP_WIDTH}x${MAP_HEIGHT}`);
 });
