@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>RYZZ.io - Large Map</title>
+    <title>RYZZ.io - Bots Arena</title>
     <style>
         * {
             margin: 0;
@@ -136,17 +136,9 @@
             border-radius: 6px;
             cursor: pointer;
         }
-        .chat-admin {
-            color: #fbbf24;
-            font-weight: bold;
-        }
-        .chat-system {
-            color: #ef4444;
-            font-style: italic;
-        }
-        .hidden {
-            display: none;
-        }
+        .chat-admin { color: #fbbf24; font-weight: bold; }
+        .chat-system { color: #ef4444; font-style: italic; }
+        .hidden { display: none; }
     </style>
 </head>
 <body>
@@ -200,14 +192,12 @@
     let orbs = [];
     let currentScore = 0;
     
-    // Camera and zoom
     let cameraX = 0, cameraY = 0;
     let mouseX = 0, mouseY = 0;
     let zoom = 1.0;
     const MIN_ZOOM = 0.3;
     const MAX_ZOOM = 2.0;
     
-    // Map size (must match server)
     const MAP_WIDTH = 4000;
     const MAP_HEIGHT = 4000;
     
@@ -235,22 +225,13 @@
         updateZoomDisplay();
     }
     
-    function zoomIn() { setZoom(zoom + 0.1); }
-    function zoomOut() { setZoom(zoom - 0.1); }
-    function zoomReset() { setZoom(1.0); }
+    document.getElementById('zoomInBtn').onclick = () => setZoom(zoom + 0.1);
+    document.getElementById('zoomOutBtn').onclick = () => setZoom(zoom - 0.1);
+    document.getElementById('zoomResetBtn').onclick = () => setZoom(1.0);
     
-    document.getElementById('zoomInBtn').onclick = zoomIn;
-    document.getElementById('zoomOutBtn').onclick = zoomOut;
-    document.getElementById('zoomResetBtn').onclick = zoomReset;
-    
-    // Mouse wheel zoom
     canvas.addEventListener('wheel', (e) => {
         e.preventDefault();
-        if (e.deltaY < 0) {
-            setZoom(zoom + 0.1);
-        } else {
-            setZoom(zoom - 0.1);
-        }
+        setZoom(e.deltaY < 0 ? zoom + 0.1 : zoom - 0.1);
     });
     
     function addChatMessage(sender, message, isAdmin = false, isSystem = false) {
@@ -306,6 +287,8 @@
         gameLoop();
     };
     
+    // ========== SOCKET EVENTS ==========
+    
     socket.on('currentPlayers', (serverPlayers) => {
         players = serverPlayers;
         for (let id in players) {
@@ -314,15 +297,40 @@
                 myPlayer = players[id];
                 adminNameSpan.innerText = myPlayer.isAdmin ? myPlayer.username : 'None';
                 if (myPlayer.isAdmin) {
-                    addChatMessage('System', 'You are ADMIN!', false, true);
+                    addChatMessage('System', 'You are ADMIN! Type /help', false, true);
                 }
             }
         }
     });
     
+    socket.on('currentBots', (serverBots) => {
+        for (const id in serverBots) {
+            players[id] = {
+                ...serverBots[id],
+                isBot: true
+            };
+        }
+    });
+    
+    socket.on('updateBots', (serverBots) => {
+        // Remove old bots
+        for (const id in players) {
+            if (players[id].isBot && !serverBots[id]) {
+                delete players[id];
+            }
+        }
+        // Add/update bots
+        for (const id in serverBots) {
+            players[id] = {
+                ...serverBots[id],
+                isBot: true
+            };
+        }
+    });
+    
     socket.on('currentOrbs', (serverOrbs) => {
         orbs = serverOrbs;
-        console.log(`Received ${orbs.length} orbs from server`);
+        console.log(`Received ${orbs.length} orbs`);
     });
     
     socket.on('newPlayer', (playerData) => {
@@ -390,6 +398,8 @@
         window.location.reload();
     });
     
+    // ========== GAME MECHANICS ==========
+    
     canvas.addEventListener('mousemove', (e) => {
         if (!myPlayer) return;
         const rect = canvas.getBoundingClientRect();
@@ -398,7 +408,6 @@
         let canvasX = (e.clientX - rect.left) * scaleX;
         let canvasY = (e.clientY - rect.top) * scaleY;
         
-        // Convert screen to world coordinates (accounting for zoom)
         mouseX = (canvasX / zoom) + cameraX;
         mouseY = (canvasY / zoom) + cameraY;
         mouseX = Math.min(Math.max(mouseX, 0), MAP_WIDTH);
@@ -411,7 +420,7 @@
         const dy = mouseY - myPlayer.y;
         const distance = Math.hypot(dx, dy);
         if (distance > 1) {
-            const speed = Math.min(5, 150 / myPlayer.radius);
+            const speed = Math.min(6, 150 / myPlayer.radius);
             myPlayer.x += (dx / distance) * speed;
             myPlayer.y += (dy / distance) * speed;
         }
@@ -423,12 +432,38 @@
     function checkCollisions() {
         if (!myPlayer) return;
         
+        // Orb collisions
         for (let i = 0; i < orbs.length; i++) {
             const orb = orbs[i];
             const dist = Math.hypot(myPlayer.x - orb.x, myPlayer.y - orb.y);
             if (dist < myPlayer.radius + orb.radius) {
                 socket.emit('collectOrb', orb.id);
                 break;
+            }
+        }
+        
+        // Player collisions (for eating other players)
+        for (const id in players) {
+            if (id === myId) continue;
+            const other = players[id];
+            if (other.isBot) continue; // Bots handled by server
+            
+            const dist = Math.hypot(myPlayer.x - other.x, myPlayer.y - other.y);
+            if (dist < myPlayer.radius + other.radius) {
+                if (myPlayer.radius > other.radius && !other.isAdmin) {
+                    socket.emit('eatPlayer', id);
+                    addChatMessage('System', `🍽️ You ate ${other.username}!`, false, true);
+                } else if (other.radius > myPlayer.radius) {
+                    socket.emit('eatPlayer', myId);
+                    addChatMessage('System', `💀 You were eaten by ${other.username}!`, false, true);
+                    myPlayer.x = Math.random() * (MAP_WIDTH - 400) + 200;
+                    myPlayer.y = Math.random() * (MAP_HEIGHT - 400) + 200;
+                    socket.emit('playerMovement', { x: myPlayer.x, y: myPlayer.y });
+                } else {
+                    const angle = Math.atan2(myPlayer.y - other.y, myPlayer.x - other.x);
+                    myPlayer.x += Math.cos(angle) * 20;
+                    myPlayer.y += Math.sin(angle) * 20;
+                }
             }
         }
     }
@@ -450,7 +485,7 @@
         ctx.fillStyle = '#0a0f1e';
         ctx.fillRect(0, 0, canvas.width, canvas.height);
         
-        // Draw grid (helps with scale on large map)
+        // Draw grid
         ctx.strokeStyle = '#1a2340';
         ctx.lineWidth = 1;
         const gridSize = 200;
@@ -485,7 +520,7 @@
             }
         }
         
-        // Draw other players
+        // Draw all players (including bots)
         for (const id in players) {
             if (id === myId) continue;
             const p = players[id];
@@ -496,14 +531,27 @@
                 screenY + radius > 0 && screenY - radius < canvas.height) {
                 ctx.beginPath();
                 ctx.arc(screenX, screenY, radius, 0, Math.PI * 2);
-                ctx.fillStyle = p.isAdmin ? '#fbbf24' : '#ef4444';
+                // Color: Purple for bots, Gold for admin, Red for players
+                if (p.isBot) {
+                    ctx.fillStyle = '#a855f7'; // Purple for bots
+                } else if (p.isAdmin) {
+                    ctx.fillStyle = '#fbbf24'; // Gold for admin
+                } else if (p.radius > myPlayer.radius) {
+                    ctx.fillStyle = '#ff4444'; // Dark red for bigger players
+                } else {
+                    ctx.fillStyle = '#ef4444'; // Normal red for smaller players
+                }
                 ctx.fill();
                 ctx.fillStyle = 'white';
                 ctx.font = `${Math.max(10, 12 * zoom)}px Arial`;
-                ctx.fillText(p.username, screenX - 20 * zoom, screenY - 15 * zoom);
-                if (p.isAdmin) {
-                    ctx.fillStyle = '#fbbf24';
-                    ctx.fillText('👑', screenX + 10 * zoom, screenY - 15 * zoom);
+                const displayName = p.isBot ? `🤖 ${p.username}` : p.username;
+                ctx.fillText(displayName, screenX - 25 * zoom, screenY - 15 * zoom);
+                
+                // Danger indicator for bots bigger than you
+                if (p.isBot && p.radius > myPlayer.radius * 1.2) {
+                    ctx.fillStyle = '#ff0000';
+                    ctx.font = `${14 * zoom}px Arial`;
+                    ctx.fillText('⚠️', screenX + 15 * zoom, screenY - 10 * zoom);
                 }
             }
         }
@@ -521,7 +569,7 @@
         ctx.stroke();
         ctx.fillStyle = '#ffffff';
         ctx.font = `bold ${Math.max(12, myRadius * 0.5)}px Arial`;
-        ctx.fillText(myPlayer.username, myScreenX - 15 * zoom, myScreenY - 12 * zoom);
+        ctx.fillText(myPlayer.username, myScreenX - 18 * zoom, myScreenY - 12 * zoom);
         if (myPlayer.isAdmin) {
             ctx.fillStyle = '#fbbf24';
             ctx.font = `${Math.max(12, 16 * zoom)}px Arial`;
