@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>RYZZ.io - Level System</title>
+    <title>RYZZ.io - Perk System</title>
     <style>
         * {
             margin: 0;
@@ -80,7 +80,7 @@
             padding: 6px 12px;
             border-radius: 8px;
             color: white;
-            font-size: 12px;
+            font-size: 11px;
             border: 1px solid #374151;
         }
         .stats span {
@@ -93,12 +93,12 @@
         #leaderboard h4 {
             margin-bottom: 4px;
             color: #fbbf24;
-            font-size: 12px;
+            font-size: 11px;
         }
         #leaderboardList {
             max-height: 100px;
             overflow-y: auto;
-            font-size: 11px;
+            font-size: 10px;
         }
         #leaderboardList div {
             margin: 2px 0;
@@ -110,22 +110,22 @@
             padding: 2px 8px;
             border-radius: 4px;
             cursor: pointer;
-            font-size: 12px;
+            font-size: 11px;
             pointer-events: auto;
         }
         #zoomLevel {
-            font-size: 11px;
+            font-size: 10px;
             min-width: 35px;
             text-align: center;
         }
         #sizeBarContainer {
-            width: 80px;
-            height: 6px;
+            width: 70px;
+            height: 5px;
             background: #374151;
             border-radius: 3px;
             overflow: hidden;
             display: inline-block;
-            margin-left: 6px;
+            margin-left: 5px;
         }
         #sizeBar {
             height: 100%;
@@ -149,7 +149,7 @@
             height: 100px;
             overflow-y: auto;
             padding: 6px;
-            font-size: 11px;
+            font-size: 10px;
             color: #ccc;
         }
         #chatMessages div {
@@ -170,7 +170,7 @@
             padding: 5px 8px;
             border-radius: 6px;
             outline: none;
-            font-size: 11px;
+            font-size: 10px;
         }
         #chatInput:focus {
             border-color: #fbbf24;
@@ -182,7 +182,7 @@
             padding: 5px 10px;
             border-radius: 6px;
             cursor: pointer;
-            font-size: 11px;
+            font-size: 10px;
         }
         .chat-admin { color: #fbbf24; font-weight: bold; }
         .chat-system { color: #ef4444; font-style: italic; }
@@ -193,7 +193,7 @@
             pointer-events: none;
             animation: floatUp 0.5s ease-out forwards;
             z-index: 200;
-            font-size: 18px;
+            font-size: 16px;
             text-shadow: 0 0 3px black;
         }
         @keyframes floatUp {
@@ -207,7 +207,7 @@
             background: rgba(0,0,0,0.5);
             padding: 4px 8px;
             border-radius: 6px;
-            font-size: 10px;
+            font-size: 9px;
             color: #888;
             pointer-events: none;
         }
@@ -218,6 +218,14 @@
             0% { text-shadow: 0 0 0px #fbbf24; }
             50% { text-shadow: 0 0 20px #fbbf24; }
             100% { text-shadow: 0 0 0px #fbbf24; }
+        }
+        .perk-badge {
+            display: inline-block;
+            background: rgba(59,130,246,0.3);
+            border-radius: 4px;
+            padding: 0 4px;
+            margin-left: 4px;
+            font-size: 9px;
         }
     </style>
 </head>
@@ -241,6 +249,7 @@
                 <div id="sizeBarContainer"><div id="sizeBar"></div></div>
             </div>
             <div class="stats">🎯 Lvl: <span id="levelValue">1</span> <span id="levelTitle">🍼 Newbie</span></div>
+            <div class="stats">⚡ Perks: <span id="perksValue">0%</span></div>
             <div class="stats">👑 Admin: <span id="adminName"></span></div>
             <div id="zoomControl">
                 <span>🔍</span>
@@ -257,15 +266,15 @@
         
         <div id="chatOverlay">
             <div id="chatMessages">
-                <div class="chat-system">🔔 Welcome! WASD or Arrow keys to move. Mouse to aim (optional).</div>
-                <div class="chat-system">🎯 Reach higher levels to evolve your cell!</div>
+                <div class="chat-system">🔔 Welcome! WASD or Arrow keys to move.</div>
+                <div class="chat-system">🎯 Type /perks to see your level bonuses!</div>
             </div>
             <div id="chatInputArea">
-                <input type="text" id="chatInput" placeholder="Type a message..." maxlength="100" autocomplete="off">
+                <input type="text" id="chatInput" placeholder="Type a message... /help for commands" maxlength="100" autocomplete="off">
                 <button id="chatSend">Send</button>
             </div>
         </div>
-        <div class="controls-hint">⬆️ WASD / Arrow Keys to move | 🖱️ Mouse optional</div>
+        <div class="controls-hint">⬆️ WASD / Arrow Keys | 🖱️ Mouse optional | 🔍 Scroll to zoom</div>
     </div>
 </div>
 
@@ -288,6 +297,7 @@
     let currentSize = 20;
     let currentLevel = 1;
     let currentTitle = '🍼 Newbie';
+    let currentPerks = { speedMultiplier: 1, sizeMultiplier: 1, scoreMultiplier: 1, eatRangeMultiplier: 1 };
     
     let cameraX = 0, cameraY = 0;
     
@@ -317,6 +327,7 @@
     const sizeBar = document.getElementById('sizeBar');
     const levelElement = document.getElementById('levelValue');
     const levelTitleElement = document.getElementById('levelTitle');
+    const perksElement = document.getElementById('perksValue');
     const leaderboardList = document.getElementById('leaderboardList');
     const chatMessages = document.getElementById('chatMessages');
     const chatInput = document.getElementById('chatInput');
@@ -324,7 +335,6 @@
     const adminNameSpan = document.getElementById('adminName');
     const zoomLevelSpan = document.getElementById('zoomLevel');
     
-    // Format score with K, M, B
     function formatScore(score) {
         if (score >= 1_000_000_000) return (score / 1_000_000_000).toFixed(1) + 'B';
         if (score >= 1_000_000) return (score / 1_000_000).toFixed(1) + 'M';
@@ -332,7 +342,24 @@
         return score.toString();
     }
     
-    // Get cell color based on level
+    function formatPerks(perks) {
+        if (!perks) return '0%';
+        const speed = Math.round((perks.speedMultiplier - 1) * 100);
+        const size = Math.round((perks.sizeMultiplier - 1) * 100);
+        const score = Math.round((perks.scoreMultiplier - 1) * 100);
+        const range = Math.round((perks.eatRangeMultiplier - 1) * 100);
+        
+        if (speed === 0 && size === 0 && score === 0 && range === 0) return '0%';
+        
+        let parts = [];
+        if (speed > 0) parts.push(`⚡+${speed}%`);
+        if (size > 0) parts.push(`💪+${size}%`);
+        if (score > 0) parts.push(`💰+${score}%`);
+        if (range > 0) parts.push(`🎯+${range}%`);
+        
+        return parts.join(' ');
+    }
+    
     function getCellColor(level) {
         if (level >= 20) return 'rainbow';
         if (level >= 15) return '#a855f7';
@@ -367,7 +394,6 @@
         setZoom(e.deltaY < 0 ? zoom + 0.1 : zoom - 0.1);
     });
     
-    // Keyboard state
     const keys = {
         ArrowUp: false, ArrowDown: false, ArrowLeft: false, ArrowRight: false,
         w: false, s: false, a: false, d: false
@@ -489,8 +515,10 @@
                 updateSizeDisplay(myPlayer.radius);
                 currentLevel = myPlayer.level || 1;
                 currentTitle = myPlayer.title || '🍼 Newbie';
+                currentPerks = myPlayer.perks || { speedMultiplier: 1, sizeMultiplier: 1, scoreMultiplier: 1, eatRangeMultiplier: 1 };
                 levelElement.innerText = currentLevel;
                 levelTitleElement.innerText = currentTitle;
+                perksElement.innerHTML = formatPerks(currentPerks);
                 if (myPlayer.isAdmin) {
                     addChatMessage('System', 'You are ADMIN! Type /help', false, true);
                 }
@@ -560,6 +588,7 @@
             players[data.id].radius = data.radius;
             players[data.id].level = data.level;
             players[data.id].title = data.title;
+            players[data.id].perks = data.perks;
         }
         if (data.id === myId) {
             if (data.score > currentScore) {
@@ -572,15 +601,22 @@
             }
             if (data.level !== lastLevel) {
                 lastLevel = data.level;
+                currentLevel = data.level;
+                currentTitle = data.title;
+                currentPerks = data.perks;
                 levelElement.innerText = data.level;
                 levelTitleElement.innerText = data.title;
+                perksElement.innerHTML = formatPerks(data.perks);
                 levelElement.classList.add('level-up');
                 levelTitleElement.classList.add('level-up');
                 setTimeout(() => {
                     levelElement.classList.remove('level-up');
                     levelTitleElement.classList.remove('level-up');
                 }, 500);
-                addChatMessage('System', `🎉 LEVEL UP! You reached ${data.title} (Level ${data.level})!`, false, true);
+                addChatMessage('System', `🎉 LEVEL UP! You reached ${data.title} (Level ${data.level})! ${formatPerks(data.perks)}`, false, true);
+            } else if (data.perks) {
+                currentPerks = data.perks;
+                perksElement.innerHTML = formatPerks(data.perks);
             }
         }
     });
@@ -605,7 +641,7 @@
         if (isAdmin && myPlayer) {
             myPlayer.isAdmin = true;
             adminNameSpan.innerText = myPlayer.username;
-            addChatMessage('System', 'You are ADMIN!', false, true);
+            addChatMessage('System', 'You are ADMIN! Type /help', false, true);
         }
     });
     
@@ -631,7 +667,9 @@
         } else {
             const move = getMoveVector();
             if (move.x !== 0 || move.y !== 0) {
-                const speed = Math.min(6, 150 / myPlayer.radius);
+                const baseSpeed = Math.min(6, 150 / myPlayer.radius);
+                const speedMultiplier = currentPerks?.speedMultiplier || 1;
+                const speed = baseSpeed * speedMultiplier;
                 targetX = myPlayer.x + move.x * speed;
                 targetY = myPlayer.y + move.y * speed;
             }
@@ -641,7 +679,9 @@
         const dy = targetY - myPlayer.y;
         const distance = Math.hypot(dx, dy);
         if (distance > 1) {
-            const speed = Math.min(6, 150 / myPlayer.radius);
+            const baseSpeed = Math.min(6, 150 / myPlayer.radius);
+            const speedMultiplier = currentPerks?.speedMultiplier || 1;
+            const speed = baseSpeed * speedMultiplier;
             myPlayer.x += (dx / distance) * speed;
             myPlayer.y += (dy / distance) * speed;
         } else if (!useMouse) {
@@ -657,16 +697,20 @@
     function checkCollisions() {
         if (!myPlayer) return;
         
+        const eatRangeBonus = currentPerks?.eatRangeMultiplier || 1;
+        
         for (let i = 0; i < orbs.length; i++) {
             const orb = orbs[i];
             if (collectingOrbIds.has(orb.id)) continue;
             
             const dist = Math.hypot(myPlayer.x - orb.x, myPlayer.y - orb.y);
-            if (dist < myPlayer.radius + orb.radius) {
+            const effectiveRadius = myPlayer.radius + orb.radius * eatRangeBonus;
+            if (dist < effectiveRadius) {
                 collectingOrbIds.add(orb.id);
                 socket.emit('collectOrb', orb.id);
                 orbs.splice(i, 1);
-                currentScore += orb.value;
+                const points = Math.floor(orb.value * (currentPerks?.scoreMultiplier || 1));
+                currentScore += points;
                 scoreElement.innerText = formatScore(currentScore);
                 if (myPlayer) myPlayer.score = currentScore;
                 break;
@@ -679,7 +723,8 @@
             if (other.isBot) continue;
             
             const dist = Math.hypot(myPlayer.x - other.x, myPlayer.y - other.y);
-            if (dist < myPlayer.radius + other.radius) {
+            const effectiveRadius = myPlayer.radius + other.radius;
+            if (dist < effectiveRadius) {
                 if (myPlayer.radius > other.radius && !other.isAdmin) {
                     socket.emit('eatPlayer', id);
                     addChatMessage('System', `🍽️ You ate ${other.username}!`, false, true);
@@ -739,7 +784,6 @@
             ctx.stroke();
         }
         
-        // Draw orbs
         for (const orb of orbs) {
             const screenX = (orb.x - cameraX) * zoom;
             const screenY = (orb.y - cameraY) * zoom;
@@ -753,7 +797,6 @@
             }
         }
         
-        // Draw players
         for (const id in players) {
             if (id === myId) continue;
             const p = players[id];
@@ -770,14 +813,13 @@
                 else ctx.fillStyle = '#ef4444';
                 ctx.fill();
                 ctx.fillStyle = 'white';
-                ctx.font = `${Math.max(10, 12 * zoom)}px Arial`;
+                ctx.font = `${Math.max(9, 11 * zoom)}px Arial`;
                 const levelBadge = p.level ? ` [Lvl ${p.level}]` : '';
                 const displayName = p.isBot ? `🤖 ${p.username}${levelBadge}` : `${p.username}${levelBadge}`;
                 ctx.fillText(displayName, screenX - 30 * zoom, screenY - 15 * zoom);
             }
         }
         
-        // Draw my player with level-based color
         const myScreenX = (myPlayer.x - cameraX) * zoom;
         const myScreenY = (myPlayer.y - cameraY) * zoom;
         const myRadius = myPlayer.radius * zoom;
@@ -802,20 +844,35 @@
         ctx.lineWidth = 3 * zoom;
         ctx.stroke();
         ctx.fillStyle = '#ffffff';
-        ctx.font = `bold ${Math.max(12, myRadius * 0.5)}px Arial`;
+        ctx.font = `bold ${Math.max(11, myRadius * 0.45)}px Arial`;
         ctx.fillText(`${myPlayer.username} [Lvl ${currentLevel}]`, myScreenX - 35 * zoom, myScreenY - 12 * zoom);
         if (myPlayer.isAdmin) {
             ctx.fillStyle = '#fbbf24';
-            ctx.font = `${Math.max(12, 16 * zoom)}px Arial`;
+            ctx.font = `${Math.max(11, 14 * zoom)}px Arial`;
             ctx.fillText('👑', myScreenX + 15 * zoom, myScreenY - 15 * zoom);
         }
         
-        // Level badge glow for high levels
         if (currentLevel >= 10) {
-            ctx.shadowBlur = 15 * zoom;
+            ctx.shadowBlur = 12 * zoom;
             ctx.shadowColor = '#fbbf24';
             ctx.fill();
             ctx.shadowBlur = 0;
+        }
+        
+        // Draw perk indicator ring for high levels
+        if (currentLevel >= 15) {
+            ctx.beginPath();
+            ctx.arc(myScreenX, myScreenY, myRadius + 3 * zoom, 0, Math.PI * 2);
+            ctx.strokeStyle = '#a855f7';
+            ctx.lineWidth = 2 * zoom;
+            ctx.stroke();
+        }
+        if (currentLevel >= 20) {
+            ctx.beginPath();
+            ctx.arc(myScreenX, myScreenY, myRadius + 6 * zoom, 0, Math.PI * 2);
+            ctx.strokeStyle = '#fbbf24';
+            ctx.lineWidth = 2 * zoom;
+            ctx.stroke();
         }
     }
 </script>
