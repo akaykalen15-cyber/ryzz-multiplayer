@@ -7,17 +7,13 @@ const app = express();
 const server = http.createServer(app);
 
 const io = socketIO(server, {
-    cors: {
-        origin: "*",
-        methods: ["GET", "POST"]
-    },
+    cors: { origin: "*", methods: ["GET", "POST"] },
     pingTimeout: 60000,
     pingInterval: 25000,
     transports: ['websocket', 'polling']
 });
 
 server.timeout = 120000;
-
 app.use(express.static(path.join(__dirname, 'public')));
 
 const ADMIN_NAME = 'RYZZ';
@@ -28,14 +24,13 @@ let bots = {};
 
 const MAP_WIDTH = 4000;
 const MAP_HEIGHT = 4000;
-
 let orbs = [];
 
 const botNames = ['Alpha', 'Beta', 'Gamma', 'Delta', 'Echo', 'Zeta', 'Theta', 'Sigma', 'Omega', 'Nova', 'Rex', 'Luna', 'Orion', 'Atlas'];
-
 const orbColors = ['#fbbf24', '#22c55e', '#3b82f6', '#a855f7'];
 const orbValues = [10, 25, 50, 100];
 
+// Generate orbs
 function generateOrbs(count) {
     for (let i = 0; i < count; i++) {
         const idx = Math.floor(Math.random() * orbColors.length);
@@ -63,35 +58,34 @@ function generateBot() {
         score: 50,
         isBot: true
     };
-    console.log(`🤖 Bot spawned: ${name}`);
 }
 
-// Initialize game
-generateOrbs(400);
-for (let i = 0; i < 10; i++) {
+// START WITH 600 ORBS
+generateOrbs(600);
+for (let i = 0; i < 12; i++) {
     generateBot();
 }
 
-// Orb respawn
+// INSTANT ORB RESPAWN - Every 0.8 seconds, keep map full
 setInterval(() => {
-    if (orbs.length < 250) {
+    // Always keep at least 500 orbs on map
+    if (orbs.length < 500) {
         generateOrbs(80);
-        console.log(`Low on orbs (${orbs.length}), generated 80 more`);
-    } else if (orbs.length < 350) {
-        generateOrbs(30);
+    } else {
+        // Even when full, add new ones continuously
+        generateOrbs(25);
     }
-}, 2500);
+}, 800);  // Every 0.8 seconds
 
 // Bot respawn
 setInterval(() => {
     const botCount = Object.keys(bots).length;
-    if (botCount < 8) {
+    if (botCount < 10) {
         generateBot();
-        console.log(`Low bots (${botCount}), spawned new one`);
     }
-}, 15000);
+}, 10000);
 
-// Bot AI movement
+// Bot AI movement - FAST
 setInterval(() => {
     for (const id in bots) {
         const bot = bots[id];
@@ -130,16 +124,16 @@ setInterval(() => {
                 const dy = nearestPlayer.y - bot.y;
                 const len = dist;
                 if (len > 0) {
-                    moveX = (dx / len) * 4.5;
-                    moveY = (dy / len) * 4.5;
+                    moveX = (dx / len) * 6;
+                    moveY = (dy / len) * 6;
                 }
             } else if (nearestPlayer.radius > bot.radius + 10) {
                 const dx = bot.x - nearestPlayer.x;
                 const dy = bot.y - nearestPlayer.y;
                 const len = dist;
                 if (len > 0) {
-                    moveX = (dx / len) * 6;
-                    moveY = (dy / len) * 6;
+                    moveX = (dx / len) * 7.5;
+                    moveY = (dy / len) * 7.5;
                 }
             }
         }
@@ -149,13 +143,13 @@ setInterval(() => {
             const dy = nearestOrb.y - bot.y;
             const len = Math.hypot(dx, dy);
             if (len > 0) {
-                moveX = (dx / len) * 3.5;
-                moveY = (dy / len) * 3.5;
+                moveX = (dx / len) * 5;
+                moveY = (dy / len) * 5;
             }
         }
         
-        moveX += (Math.random() - 0.5) * 1.5;
-        moveY += (Math.random() - 0.5) * 1.5;
+        moveX += (Math.random() - 0.5) * 2;
+        moveY += (Math.random() - 0.5) * 2;
         
         bot.x += moveX;
         bot.y += moveY;
@@ -175,7 +169,7 @@ setInterval(() => {
         }
     }
     io.emit('updateBots', bots);
-}, 60);
+}, 40);
 
 // Bot vs player collisions
 setInterval(() => {
@@ -400,9 +394,9 @@ function updateLeaderboard() {
 
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, '0.0.0.0', () => {
-    console.log(`\n✅ RYZZ.io server running on port ${PORT}`);
+    console.log(`\n✅ RYZZ.io INSTANT ORB server running!`);
     console.log(`🗺️ Map: ${MAP_WIDTH}x${MAP_HEIGHT}`);
     console.log(`🤖 Bots: ${Object.keys(bots).length}`);
-    console.log(`🟡 Orbs: ${orbs.length}`);
+    console.log(`🟡 Orbs: ${orbs.length} (respawn every 0.8s)`);
     console.log(`👑 Admin: ${ADMIN_NAME}\n`);
 });
