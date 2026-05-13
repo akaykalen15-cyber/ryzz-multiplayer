@@ -2,6 +2,7 @@ const express = require('express');
 const http = require('http');
 const socketIO = require('socket.io');
 const path = require('path');
+const fs = require('fs');
 
 const app = express();
 const server = http.createServer(app);
@@ -29,12 +30,64 @@ const MIN_MAP_SIZE = 4000;
 
 let orbs = [];
 
+// 🏆 ALL-TIME TOP 10 LEADERBOARD (saved to file)
+let allTimeTop10 = [];
+const LEADERBOARD_FILE = path.join(__dirname, 'top10.json');
+
+// Load saved leaderboard
+if (fs.existsSync(LEADERBOARD_FILE)) {
+    try {
+        const data = fs.readFileSync(LEADERBOARD_FILE, 'utf8');
+        allTimeTop10 = JSON.parse(data);
+        console.log(`🏆 Loaded ${allTimeTop10.length} all-time records`);
+    } catch (e) {
+        console.log('Error loading leaderboard, starting fresh');
+        allTimeTop10 = [];
+    }
+}
+
+function saveTop10() {
+    fs.writeFileSync(LEADERBOARD_FILE, JSON.stringify(allTimeTop10, null, 2));
+    console.log(`🏆 Saved all-time leaderboard (${allTimeTop10.length} records)`);
+}
+
+function updateAllTimeLeaderboard(username, score) {
+    // Check if this player already has a record
+    const existingIndex = allTimeTop10.findIndex(entry => entry.username === username);
+    
+    if (existingIndex !== -1) {
+        // Update if score is higher
+        if (score > allTimeTop10[existingIndex].score) {
+            allTimeTop10[existingIndex].score = score;
+            allTimeTop10[existingIndex].date = new Date().toISOString();
+            console.log(`🏆 ${username} improved record to ${score}`);
+        }
+    } else {
+        // Add new record
+        allTimeTop10.push({
+            username: username,
+            score: score,
+            date: new Date().toISOString()
+        });
+        console.log(`🏆 ${username} added to all-time leaderboard with ${score}`);
+    }
+    
+    // Sort and keep top 10
+    allTimeTop10.sort((a, b) => b.score - a.score);
+    allTimeTop10 = allTimeTop10.slice(0, 10);
+    
+    // Save to file
+    saveTop10();
+    
+    // Broadcast to all players
+    io.emit('allTimeLeaderboard', allTimeTop10);
+}
+
 const orbColors = ['#fbbf24', '#22c55e', '#3b82f6', '#a855f7'];
 const orbValues = [100, 200, 350, 500];
 
 const botNames = ['Alpha', 'Beta', 'Gamma', 'Delta', 'Echo', 'Zeta', 'Theta', 'Sigma'];
 
-// Level system
 function getLevel(score) {
     if (score < 1000) return 1;
     if (score < 2500) return 2;
@@ -353,6 +406,9 @@ setInterval(() => {
 io.on('connection', (socket) => {
     console.log(`Player connected: ${socket.id}`);
 
+    // Send all-time leaderboard on connection
+    socket.emit('allTimeLeaderboard', allTimeTop10);
+
     socket.on('joinGame', (data) => {
         const username = data.username;
         const password = data.password || '';
@@ -459,6 +515,9 @@ io.on('connection', (socket) => {
                 io.emit('chatMessage', { username: 'System', message: `🎉 ${eater.username} reached ${eater.title} (Level ${eater.level})!`, isSystem: true });
             }
             
+            // Update all-time leaderboard if this is a high score
+            updateAllTimeLeaderboard(eater.username, eater.score);
+            
             target.score = Math.floor(target.score / 5);
             target.radius = Math.max(20, 15 + Math.floor(target.score / 500));
             target.x = Math.random() * MAP_WIDTH;
@@ -490,7 +549,7 @@ io.on('connection', (socket) => {
             
             switch(cmd) {
                 case '/help':
-                    socket.emit('chatMessage', { username: 'System', message: 'Commands: /kick, /clear, /list, /orbs, /bots, /map, /perks', isSystem: true });
+                    socket.emit('chatMessage', { username: 'System', message: 'Commands: /kick, /clear, /list, /orbs, /bots, /map, /perks, /top10', isSystem: true });
                     break;
                 case '/kick':
                     if (parts.length < 2) return;
@@ -525,6 +584,13 @@ io.on('connection', (socket) => {
                 case '/perks':
                     const perks = player.perks;
                     socket.emit('chatMessage', { username: 'System', message: `Your perks: ⚡${(perks.speedMultiplier*100).toFixed(0)}% Speed | 💪${(perks.sizeMultiplier*100).toFixed(0)}% Size | 💰${(perks.scoreMultiplier*100).toFixed(0)}% Score | 🎯${(perks.eatRangeMultiplier*100).toFixed(0)}% Range | ⚔️ ${player.kills || 0} kills`, isSystem: true });
+                    break;
+                case '/top10':
+                    let msg = '🏆 ALL-TIME TOP 10 🏆\n';
+                    allTimeTop10.forEach((entry, i) => {
+                        msg += `${i+1}. ${entry.username} - ${formatScore(entry.score)}\n`;
+                    });
+                    socket.emit('chatMessage', { username: 'System', message: msg, isSystem: true });
                     break;
                 case '/orbs':
                     socket.emit('chatMessage', { username: 'System', message: `${orbs.length} orbs on map`, isSystem: true });
@@ -586,10 +652,10 @@ function updateLeaderboard() {
 
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, '0.0.0.0', () => {
-    console.log(`\n✅ RYZZ.io KILLS SYSTEM server running!`);
+    console.log(`\n✅ RYZZ.io ALL-TIME TOP 10 server running!`);
+    console.log(`🏆 All-time leaderboard saved to top10.json`);
     console.log(`⚔️ Kills counter enabled!`);
     console.log(`💀 Death messages enabled!`);
-    console.log(`🏆 Personal best tracking!`);
     console.log(`💎 Orb values: 100, 200, 350, 500`);
     console.log(`🎯 Level perks enabled!`);
     console.log(`🗺️ Map: ${MAP_WIDTH}x${MAP_HEIGHT}`);
