@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>RYZZ.io</title>
+    <title>RYZZ.io - Large Map</title>
     <style>
         * {
             margin: 0;
@@ -78,6 +78,29 @@
             margin-bottom: 5px;
             color: #fbbf24;
         }
+        #zoomControl {
+            background: #1f2937;
+            padding: 5px 12px;
+            border-radius: 8px;
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+        #zoomControl button {
+            background: #3b82f6;
+            border: none;
+            color: white;
+            padding: 3px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        #zoomLevel {
+            color: white;
+            font-size: 12px;
+            min-width: 45px;
+            text-align: center;
+        }
         #chatContainer {
             margin-top: 10px;
             background: #1f2937;
@@ -130,7 +153,7 @@
 <div id="joinScreen">
     <h1>👑 RYZZ.io</h1>
     <input type="text" id="usernameInput" placeholder="Enter username" maxlength="20">
-    <input type="password" id="passwordInput" placeholder="Admin password (if needed)" style="margin-top: 10px;">
+    <input type="password" id="passwordInput" placeholder="Admin password" style="margin-top: 10px;">
     <br>
     <button id="joinBtn">Join Game</button>
     <div id="errorMsg"></div>
@@ -138,10 +161,17 @@
 
 <div id="gameScreen" class="hidden">
     <div id="gameContainer">
-        <canvas id="gameCanvas" width="1000" height="700"></canvas>
+        <canvas id="gameCanvas" width="1200" height="800"></canvas>
         <div id="ui">
             <div class="stats">🎯 Score: <span id="scoreValue">0</span></div>
             <div class="stats">👑 Admin: <span id="adminName"></span></div>
+            <div id="zoomControl">
+                <span style="color:white;">🔍</span>
+                <button id="zoomOutBtn">-</button>
+                <span id="zoomLevel">100%</span>
+                <button id="zoomInBtn">+</button>
+                <button id="zoomResetBtn">Reset</button>
+            </div>
             <div id="leaderboard">
                 <h4>🏆 LEADERBOARD</h4>
                 <div id="leaderboardList"></div>
@@ -170,8 +200,16 @@
     let orbs = [];
     let currentScore = 0;
     
+    // Camera and zoom
     let cameraX = 0, cameraY = 0;
     let mouseX = 0, mouseY = 0;
+    let zoom = 1.0;
+    const MIN_ZOOM = 0.3;
+    const MAX_ZOOM = 2.0;
+    
+    // Map size (must match server)
+    const MAP_WIDTH = 4000;
+    const MAP_HEIGHT = 4000;
     
     // DOM elements
     const joinScreen = document.getElementById('joinScreen');
@@ -186,6 +224,34 @@
     const chatInput = document.getElementById('chatInput');
     const chatSend = document.getElementById('chatSend');
     const adminNameSpan = document.getElementById('adminName');
+    const zoomLevelSpan = document.getElementById('zoomLevel');
+    
+    function updateZoomDisplay() {
+        zoomLevelSpan.innerText = `${Math.round(zoom * 100)}%`;
+    }
+    
+    function setZoom(newZoom) {
+        zoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, newZoom));
+        updateZoomDisplay();
+    }
+    
+    function zoomIn() { setZoom(zoom + 0.1); }
+    function zoomOut() { setZoom(zoom - 0.1); }
+    function zoomReset() { setZoom(1.0); }
+    
+    document.getElementById('zoomInBtn').onclick = zoomIn;
+    document.getElementById('zoomOutBtn').onclick = zoomOut;
+    document.getElementById('zoomResetBtn').onclick = zoomReset;
+    
+    // Mouse wheel zoom
+    canvas.addEventListener('wheel', (e) => {
+        e.preventDefault();
+        if (e.deltaY < 0) {
+            setZoom(zoom + 0.1);
+        } else {
+            setZoom(zoom - 0.1);
+        }
+    });
     
     function addChatMessage(sender, message, isAdmin = false, isSystem = false) {
         const div = document.createElement('div');
@@ -229,7 +295,6 @@
         
         socket.emit('joinGame', { username: username, password: password });
         
-        // Start game loop
         function gameLoop() {
             if (myPlayer) {
                 movePlayer();
@@ -241,7 +306,6 @@
         gameLoop();
     };
     
-    // Socket events
     socket.on('currentPlayers', (serverPlayers) => {
         players = serverPlayers;
         for (let id in players) {
@@ -326,7 +390,6 @@
         window.location.reload();
     });
     
-    // Mouse tracking
     canvas.addEventListener('mousemove', (e) => {
         if (!myPlayer) return;
         const rect = canvas.getBoundingClientRect();
@@ -334,10 +397,12 @@
         const scaleY = canvas.height / rect.height;
         let canvasX = (e.clientX - rect.left) * scaleX;
         let canvasY = (e.clientY - rect.top) * scaleY;
-        mouseX = canvasX + cameraX;
-        mouseY = canvasY + cameraY;
-        mouseX = Math.min(Math.max(mouseX, 0), 2000);
-        mouseY = Math.min(Math.max(mouseY, 0), 2000);
+        
+        // Convert screen to world coordinates (accounting for zoom)
+        mouseX = (canvasX / zoom) + cameraX;
+        mouseY = (canvasY / zoom) + cameraY;
+        mouseX = Math.min(Math.max(mouseX, 0), MAP_WIDTH);
+        mouseY = Math.min(Math.max(mouseY, 0), MAP_HEIGHT);
     });
     
     function movePlayer() {
@@ -350,20 +415,18 @@
             myPlayer.x += (dx / distance) * speed;
             myPlayer.y += (dy / distance) * speed;
         }
-        myPlayer.x = Math.min(Math.max(myPlayer.x, myPlayer.radius + 5), 2000 - myPlayer.radius - 5);
-        myPlayer.y = Math.min(Math.max(myPlayer.y, myPlayer.radius + 5), 2000 - myPlayer.radius - 5);
+        myPlayer.x = Math.min(Math.max(myPlayer.x, myPlayer.radius + 5), MAP_WIDTH - myPlayer.radius - 5);
+        myPlayer.y = Math.min(Math.max(myPlayer.y, myPlayer.radius + 5), MAP_HEIGHT - myPlayer.radius - 5);
         socket.emit('playerMovement', { x: myPlayer.x, y: myPlayer.y });
     }
     
     function checkCollisions() {
         if (!myPlayer) return;
         
-        // Check orb collisions
         for (let i = 0; i < orbs.length; i++) {
             const orb = orbs[i];
             const dist = Math.hypot(myPlayer.x - orb.x, myPlayer.y - orb.y);
             if (dist < myPlayer.radius + orb.radius) {
-                console.log('Collision detected! Sending collectOrb');
                 socket.emit('collectOrb', orb.id);
                 break;
             }
@@ -372,28 +435,51 @@
     
     function updateCamera() {
         if (!myPlayer) return;
-        cameraX = myPlayer.x - canvas.width / 2;
-        cameraY = myPlayer.y - canvas.height / 2;
-        cameraX = Math.min(Math.max(cameraX, 0), 2000 - canvas.width);
-        cameraY = Math.min(Math.max(cameraY, 0), 2000 - canvas.height);
+        const effectiveWidth = canvas.width / zoom;
+        const effectiveHeight = canvas.height / zoom;
+        cameraX = myPlayer.x - effectiveWidth / 2;
+        cameraY = myPlayer.y - effectiveHeight / 2;
+        cameraX = Math.min(Math.max(cameraX, 0), MAP_WIDTH - effectiveWidth);
+        cameraY = Math.min(Math.max(cameraY, 0), MAP_HEIGHT - effectiveHeight);
     }
     
     function draw() {
         if (!myPlayer) return;
         updateCamera();
         
-        // Background
         ctx.fillStyle = '#0a0f1e';
         ctx.fillRect(0, 0, canvas.width, canvas.height);
         
+        // Draw grid (helps with scale on large map)
+        ctx.strokeStyle = '#1a2340';
+        ctx.lineWidth = 1;
+        const gridSize = 200;
+        const startX = Math.floor(cameraX / gridSize) * gridSize;
+        const startY = Math.floor(cameraY / gridSize) * gridSize;
+        for (let x = startX; x < cameraX + canvas.width / zoom; x += gridSize) {
+            const screenX = (x - cameraX) * zoom;
+            ctx.beginPath();
+            ctx.moveTo(screenX, 0);
+            ctx.lineTo(screenX, canvas.height);
+            ctx.stroke();
+        }
+        for (let y = startY; y < cameraY + canvas.height / zoom; y += gridSize) {
+            const screenY = (y - cameraY) * zoom;
+            ctx.beginPath();
+            ctx.moveTo(0, screenY);
+            ctx.lineTo(canvas.width, screenY);
+            ctx.stroke();
+        }
+        
         // Draw orbs
         for (const orb of orbs) {
-            const screenX = orb.x - cameraX;
-            const screenY = orb.y - cameraY;
-            if (screenX + orb.radius > 0 && screenX - orb.radius < canvas.width &&
-                screenY + orb.radius > 0 && screenY - orb.radius < canvas.height) {
+            const screenX = (orb.x - cameraX) * zoom;
+            const screenY = (orb.y - cameraY) * zoom;
+            const radius = orb.radius * zoom;
+            if (screenX + radius > 0 && screenX - radius < canvas.width &&
+                screenY + radius > 0 && screenY - radius < canvas.height) {
                 ctx.beginPath();
-                ctx.arc(screenX, screenY, orb.radius, 0, Math.PI * 2);
+                ctx.arc(screenX, screenY, radius, 0, Math.PI * 2);
                 ctx.fillStyle = orb.color;
                 ctx.fill();
             }
@@ -403,41 +489,43 @@
         for (const id in players) {
             if (id === myId) continue;
             const p = players[id];
-            const screenX = p.x - cameraX;
-            const screenY = p.y - cameraY;
-            if (screenX + p.radius > 0 && screenX - p.radius < canvas.width &&
-                screenY + p.radius > 0 && screenY - p.radius < canvas.height) {
+            const screenX = (p.x - cameraX) * zoom;
+            const screenY = (p.y - cameraY) * zoom;
+            const radius = p.radius * zoom;
+            if (screenX + radius > 0 && screenX - radius < canvas.width &&
+                screenY + radius > 0 && screenY - radius < canvas.height) {
                 ctx.beginPath();
-                ctx.arc(screenX, screenY, p.radius, 0, Math.PI * 2);
+                ctx.arc(screenX, screenY, radius, 0, Math.PI * 2);
                 ctx.fillStyle = p.isAdmin ? '#fbbf24' : '#ef4444';
                 ctx.fill();
                 ctx.fillStyle = 'white';
-                ctx.font = '12px Arial';
-                ctx.fillText(p.username, screenX - 20, screenY - 15);
+                ctx.font = `${Math.max(10, 12 * zoom)}px Arial`;
+                ctx.fillText(p.username, screenX - 20 * zoom, screenY - 15 * zoom);
                 if (p.isAdmin) {
                     ctx.fillStyle = '#fbbf24';
-                    ctx.fillText('👑', screenX + 10, screenY - 15);
+                    ctx.fillText('👑', screenX + 10 * zoom, screenY - 15 * zoom);
                 }
             }
         }
         
         // Draw my player
-        const myScreenX = myPlayer.x - cameraX;
-        const myScreenY = myPlayer.y - cameraY;
+        const myScreenX = (myPlayer.x - cameraX) * zoom;
+        const myScreenY = (myPlayer.y - cameraY) * zoom;
+        const myRadius = myPlayer.radius * zoom;
         ctx.beginPath();
-        ctx.arc(myScreenX, myScreenY, myPlayer.radius, 0, Math.PI * 2);
+        ctx.arc(myScreenX, myScreenY, myRadius, 0, Math.PI * 2);
         ctx.fillStyle = '#3b82f6';
         ctx.fill();
         ctx.strokeStyle = '#ffffff';
-        ctx.lineWidth = 3;
+        ctx.lineWidth = 3 * zoom;
         ctx.stroke();
         ctx.fillStyle = '#ffffff';
-        ctx.font = `bold ${Math.max(12, myPlayer.radius * 0.5)}px Arial`;
-        ctx.fillText(myPlayer.username, myScreenX - 15, myScreenY - 12);
+        ctx.font = `bold ${Math.max(12, myRadius * 0.5)}px Arial`;
+        ctx.fillText(myPlayer.username, myScreenX - 15 * zoom, myScreenY - 12 * zoom);
         if (myPlayer.isAdmin) {
             ctx.fillStyle = '#fbbf24';
-            ctx.font = '16px Arial';
-            ctx.fillText('👑', myScreenX + 5, myScreenY - 15);
+            ctx.font = `${Math.max(12, 16 * zoom)}px Arial`;
+            ctx.fillText('👑', myScreenX + 5 * zoom, myScreenY - 15 * zoom);
         }
     }
 </script>
