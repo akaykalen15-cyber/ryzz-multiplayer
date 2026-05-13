@@ -29,11 +29,65 @@ const MIN_MAP_SIZE = 4000;
 
 let orbs = [];
 
-// 🎯 NEW HIGHER ORB VALUES
 const orbColors = ['#fbbf24', '#22c55e', '#3b82f6', '#a855f7'];
-const orbValues = [100, 200, 350, 500];  // Was 10, 25, 50, 100
+const orbValues = [100, 200, 350, 500];
 
 const botNames = ['Alpha', 'Beta', 'Gamma', 'Delta', 'Echo', 'Zeta', 'Theta', 'Sigma', 'Omega', 'Nova', 'Rex', 'Luna', 'Orion', 'Atlas'];
+
+// 🎯 LEVEL SYSTEM
+function getLevel(score) {
+    if (score < 1000) return 1;
+    if (score < 2500) return 2;
+    if (score < 5000) return 3;
+    if (score < 10000) return 4;
+    if (score < 20000) return 5;
+    if (score < 35000) return 6;
+    if (score < 55000) return 7;
+    if (score < 80000) return 8;
+    if (score < 110000) return 9;
+    if (score < 250000) return Math.floor(10 + (score - 110000) / 20000);
+    if (score < 500000) return Math.floor(15 + (score - 250000) / 30000);
+    return Math.floor(20 + (score - 500000) / 50000);
+}
+
+function getLevelTitle(level) {
+    if (level < 2) return '🍼 Newbie';
+    if (level < 3) return '🌱 Rookie';
+    if (level < 4) return '⚔️ Fighter';
+    if (level < 5) return '🛡️ Warrior';
+    if (level < 6) return '🏃 Runner';
+    if (level < 7) return '💪 Gladiator';
+    if (level < 8) return '👑 Champion';
+    if (level < 9) return '🔥 Legend';
+    if (level < 10) return '💀 Reaper';
+    if (level < 15) return '🌟 Star';
+    if (level < 20) return '⚡ God';
+    return '👑 Supreme';
+}
+
+function getLevelBonus(level) {
+    return {
+        speedBonus: Math.min(50, Math.floor(level * 2)),
+        sizeBonus: Math.min(50, Math.floor(level * 2)),
+        eatBonus: Math.min(30, Math.floor(level * 1.5))
+    };
+}
+
+function formatScore(score) {
+    if (score >= 1_000_000_000) return (score / 1_000_000_000).toFixed(1) + 'B';
+    if (score >= 1_000_000) return (score / 1_000_000).toFixed(1) + 'M';
+    if (score >= 1_000) return (score / 1_000).toFixed(1) + 'K';
+    return score.toString();
+}
+
+function getCellColor(level) {
+    if (level >= 20) return 'rainbow';
+    if (level >= 15) return '#a855f7'; // Purple
+    if (level >= 10) return '#f97316'; // Orange
+    if (level >= 7) return '#fbbf24'; // Gold
+    if (level >= 4) return '#60a5fa'; // Light blue
+    return '#3b82f6'; // Blue
+}
 
 function updateMapSize() {
     let highestScore = 0;
@@ -75,13 +129,17 @@ function generateOrbs(count) {
 function generateBot() {
     const name = botNames[Math.floor(Math.random() * botNames.length)] + Math.floor(Math.random() * 99);
     const botId = 'bot_' + Math.random().toString(36).substr(2, 8);
+    const startScore = 500;
+    const level = getLevel(startScore);
     bots[botId] = {
         id: botId,
         username: name,
         x: Math.random() * MAP_WIDTH,
         y: Math.random() * MAP_HEIGHT,
         radius: 18,
-        score: 500,  // Bots start with higher score
+        score: startScore,
+        level: level,
+        title: getLevelTitle(level),
         isBot: true
     };
 }
@@ -96,17 +154,14 @@ setInterval(() => {
     updateMapSize();
 }, 1000);
 
-// Orb respawn
 setInterval(() => {
     if (orbs.length < 500) {
         generateOrbs(80);
-        console.log(`Low on orbs (${orbs.length}), generated 80 more`);
     } else {
         generateOrbs(25);
     }
 }, 800);
 
-// Bot respawn
 setInterval(() => {
     const botCount = Object.keys(bots).length;
     if (botCount < 10) {
@@ -114,7 +169,6 @@ setInterval(() => {
     }
 }, 10000);
 
-// Bot AI movement
 setInterval(() => {
     for (const id in bots) {
         const bot = bots[id];
@@ -196,11 +250,16 @@ setInterval(() => {
                 i--;
             }
         }
+        
+        const newLevel = getLevel(bot.score);
+        if (newLevel !== bot.level) {
+            bot.level = newLevel;
+            bot.title = getLevelTitle(newLevel);
+        }
     }
     io.emit('updateBots', bots);
 }, 40);
 
-// Bot vs player collisions
 setInterval(() => {
     for (const botId in bots) {
         const bot = bots[botId];
@@ -220,6 +279,11 @@ setInterval(() => {
                     player.radius = Math.max(20, 20 + Math.floor(player.score / 500));
                     player.x = Math.random() * MAP_WIDTH;
                     player.y = Math.random() * MAP_HEIGHT;
+                    
+                    const newLevel = getLevel(player.score);
+                    player.level = newLevel;
+                    player.title = getLevelTitle(newLevel);
+                    
                     io.emit('playerMoved', player);
                     io.emit('chatMessage', { username: 'System', message: `🤖 ${bot.username} ate ${player.username}!`, isSystem: true });
                     updateLeaderboard();
@@ -227,6 +291,11 @@ setInterval(() => {
                     const gain = Math.floor(bot.score / 2) + 200;
                     player.score += gain;
                     player.radius = Math.min(120, 20 + Math.floor(player.score / 500));
+                    
+                    const newLevel = getLevel(player.score);
+                    player.level = newLevel;
+                    player.title = getLevelTitle(newLevel);
+                    
                     io.emit('chatMessage', { username: 'System', message: `🍽️ ${player.username} ate ${bot.username}! +${gain}`, isSystem: true });
                     delete bots[botId];
                     generateBot();
@@ -253,13 +322,18 @@ io.on('connection', (socket) => {
             }
         }
         
+        const startScore = 0;
+        const level = getLevel(startScore);
+        
         players[socket.id] = {
             id: socket.id,
             username: username,
             x: Math.random() * MAP_WIDTH,
             y: Math.random() * MAP_HEIGHT,
             radius: 20,
-            score: 0,
+            score: startScore,
+            level: level,
+            title: getLevelTitle(level),
             isAdmin: isAdmin
         };
         
@@ -295,11 +369,20 @@ io.on('connection', (socket) => {
                 player.score += orb.value;
                 player.radius = Math.min(120, 20 + Math.floor(player.score / 500));
                 
+                const newLevel = getLevel(player.score);
+                if (newLevel !== player.level) {
+                    player.level = newLevel;
+                    player.title = getLevelTitle(newLevel);
+                    io.emit('chatMessage', { username: 'System', message: `🎉 ${player.username} reached ${player.title} (Level ${player.level})!`, isSystem: true });
+                }
+                
                 updateLeaderboard();
                 io.emit('scoreUpdate', {
                     id: socket.id,
                     score: player.score,
-                    radius: player.radius
+                    radius: player.radius,
+                    level: player.level,
+                    title: player.title
                 });
                 io.emit('orbCollected', orbId);
                 return;
@@ -318,16 +401,29 @@ io.on('connection', (socket) => {
             eater.score += gain;
             eater.radius = Math.min(120, 20 + Math.floor(eater.score / 500));
             
+            const newEaterLevel = getLevel(eater.score);
+            if (newEaterLevel !== eater.level) {
+                eater.level = newEaterLevel;
+                eater.title = getLevelTitle(newEaterLevel);
+                io.emit('chatMessage', { username: 'System', message: `🎉 ${eater.username} reached ${eater.title} (Level ${eater.level})!`, isSystem: true });
+            }
+            
             target.score = Math.max(0, Math.floor(target.score / 3));
             target.radius = Math.max(20, 20 + Math.floor(target.score / 500));
             target.x = Math.random() * MAP_WIDTH;
             target.y = Math.random() * MAP_HEIGHT;
             
+            const newTargetLevel = getLevel(target.score);
+            if (newTargetLevel !== target.level) {
+                target.level = newTargetLevel;
+                target.title = getLevelTitle(newTargetLevel);
+            }
+            
             updateLeaderboard();
-            io.emit('scoreUpdate', { id: socket.id, score: eater.score, radius: eater.radius });
-            io.emit('scoreUpdate', { id: targetId, score: target.score, radius: target.radius });
+            io.emit('scoreUpdate', { id: socket.id, score: eater.score, radius: eater.radius, level: eater.level, title: eater.title });
+            io.emit('scoreUpdate', { id: targetId, score: target.score, radius: target.radius, level: target.level, title: target.title });
             io.emit('playerMoved', target);
-            io.emit('chatMessage', { username: 'System', message: `🍽️ ${eater.username} ate ${target.username}! +${gain}`, isSystem: true });
+            io.emit('chatMessage', { username: 'System', message: `🍽️ ${eater.username} ate ${target.username}! +${formatScore(gain)}`, isSystem: true });
         }
     });
     
@@ -341,7 +437,7 @@ io.on('connection', (socket) => {
             
             switch(cmd) {
                 case '/help':
-                    socket.emit('chatMessage', { username: 'System', message: 'Commands: /kick [name], /clear, /list, /orbs, /bots, /map', isSystem: true });
+                    socket.emit('chatMessage', { username: 'System', message: 'Commands: /kick, /clear, /list, /orbs, /bots, /map', isSystem: true });
                     break;
                 case '/kick':
                     if (parts.length < 2) return;
@@ -369,7 +465,7 @@ io.on('connection', (socket) => {
                 case '/list':
                     const list = [];
                     for (const id in players) {
-                        list.push(`${players[id].username}${players[id].isAdmin ? '👑' : ''} (${players[id].score})`);
+                        list.push(`${players[id].username}${players[id].isAdmin ? '👑' : ''} (Lvl ${players[id].level} - ${formatScore(players[id].score)})`);
                     }
                     socket.emit('chatMessage', { username: 'System', message: `Online: ${list.join(', ')}`, isSystem: true });
                     break;
@@ -380,7 +476,7 @@ io.on('connection', (socket) => {
                     socket.emit('chatMessage', { username: 'System', message: `${Object.keys(bots).length} bots active`, isSystem: true });
                     break;
                 case '/map':
-                    socket.emit('chatMessage', { username: 'System', message: `Map size: ${MAP_WIDTH}x${MAP_HEIGHT}`, isSystem: true });
+                    socket.emit('chatMessage', { username: 'System', message: `Map size: ${formatScore(MAP_WIDTH)}x${formatScore(MAP_HEIGHT)}`, isSystem: true });
                     break;
                 default:
                     socket.emit('chatMessage', { username: 'System', message: 'Type /help for commands', isSystem: true });
@@ -411,6 +507,8 @@ function updateLeaderboard() {
         list.push({
             username: players[id].username,
             score: players[id].score,
+            level: players[id].level,
+            title: players[id].title,
             isAdmin: players[id].isAdmin
         });
     }
@@ -418,6 +516,8 @@ function updateLeaderboard() {
         list.push({
             username: '🤖 ' + bots[id].username,
             score: bots[id].score,
+            level: bots[id].level,
+            title: bots[id].title,
             isAdmin: false
         });
     }
@@ -427,9 +527,10 @@ function updateLeaderboard() {
 
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, '0.0.0.0', () => {
-    console.log(`\n✅ RYZZ.io HIGH VALUE server running!`);
+    console.log(`\n✅ RYZZ.io LEVEL SYSTEM server running!`);
     console.log(`💎 Orb values: 100, 200, 350, 500`);
+    console.log(`🎯 Level system enabled (1-20+)`);
+    console.log(`📊 Score prefixes: K, M, B`);
     console.log(`🗺️ Map: ${MAP_WIDTH}x${MAP_HEIGHT}`);
-    console.log(`🤖 Bots: ${Object.keys(bots).length}`);
-    console.log(`🟡 Orbs: ${orbs.length}\n`);
+    console.log(`🤖 Bots: ${Object.keys(bots).length}\n`);
 });
