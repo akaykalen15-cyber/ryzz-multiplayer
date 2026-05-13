@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>RYZZ.io - Glowing Admin</title>
+    <title>RYZZ.io - Admin Panel</title>
     <style>
         * {
             margin: 0;
@@ -31,7 +31,8 @@
         #joinScreen input {
             background: #1f2937;
             border: 1px solid #374151;
-            color: white;
+            color: #ffffff;
+            caret-color: #fbbf24;
             padding: 12px 20px;
             border-radius: 8px;
             font-size: 16px;
@@ -41,6 +42,9 @@
         }
         #joinScreen input:focus {
             border-color: #fbbf24;
+        }
+        #joinScreen input::placeholder {
+            color: #6b7280;
         }
         #joinScreen button {
             background: #3b82f6;
@@ -221,12 +225,66 @@
             font-weight: bold;
             text-shadow: 0 0 3px #ffffff, 0 0 6px #fbbf24;
         }
+        
+        /* ADMIN PANEL BUTTONS */
+        #adminPanel {
+            position: absolute;
+            top: 80px;
+            right: 10px;
+            background: rgba(0, 0, 0, 0.85);
+            backdrop-filter: blur(8px);
+            border-radius: 12px;
+            padding: 10px;
+            border: 1px solid #fbbf24;
+            z-index: 20;
+            pointer-events: auto;
+            min-width: 140px;
+        }
+        #adminPanel h4 {
+            color: #fbbf24;
+            font-size: 11px;
+            margin-bottom: 8px;
+            text-align: center;
+        }
+        .admin-btn {
+            background: #3b82f6;
+            border: none;
+            color: white;
+            padding: 5px 10px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 11px;
+            margin: 3px;
+            width: 60px;
+        }
+        .admin-btn:hover {
+            background: #2563eb;
+        }
+        .admin-btn-danger {
+            background: #ef4444;
+        }
+        .admin-btn-danger:hover {
+            background: #dc2626;
+        }
+        .admin-btn-gold {
+            background: #fbbf24;
+            color: #111827;
+        }
+        .admin-btn-gold:hover {
+            background: #f59e0b;
+        }
+        .admin-btn-group {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+            justify-content: center;
+        }
     </style>
 </head>
 <body>
 <div id="joinScreen">
     <h1>👑 RYZZ.io</h1>
-    <input type="text" id="usernameInput" placeholder="Enter username" maxlength="20" autocomplete="off">
+    <input type="text" id="usernameInput" placeholder="Enter username" maxlength="20" autocomplete="off" value="">
     <input type="password" id="passwordInput" placeholder="Admin password" style="margin-top: 10px;" autocomplete="off">
     <br>
     <button id="joinBtn">Join Game</button>
@@ -236,6 +294,25 @@
 <div id="gameScreen" class="hidden">
     <div id="gameContainer">
         <canvas id="gameCanvas" width="1200" height="800"></canvas>
+        
+        <!-- ADMIN PANEL - Only visible to admin -->
+        <div id="adminPanel" class="hidden">
+            <h4>👑 ADMIN PANEL</h4>
+            <div class="admin-btn-group">
+                <button class="admin-btn" data-points="100">+100</button>
+                <button class="admin-btn" data-points="500">+500</button>
+                <button class="admin-btn" data-points="1000">+1K</button>
+                <button class="admin-btn" data-points="5000">+5K</button>
+                <button class="admin-btn" data-points="10000">+10K</button>
+                <button class="admin-btn admin-btn-gold" data-points="50000">+50K</button>
+                <button class="admin-btn admin-btn-gold" data-points="100000">+100K</button>
+            </div>
+            <div class="admin-btn-group" style="margin-top: 8px;">
+                <button class="admin-btn admin-btn-danger" id="adminHealBtn">💚 Heal</button>
+                <button class="admin-btn admin-btn-danger" id="adminMaxSizeBtn">💪 Max Size</button>
+                <button class="admin-btn" id="adminSpawnOrbsBtn">🟡 Spawn Orbs</button>
+            </div>
+        </div>
         
         <div id="ui">
             <div class="stats">🎯 Score: <span id="scoreValue">0</span></div>
@@ -267,14 +344,14 @@
         <div id="chatOverlay">
             <div id="chatMessages">
                 <div class="chat-system">🔔 Welcome! WASD or Arrow keys to move. Mouse to aim.</div>
-                <div class="chat-system">👑 Admin RYZZ glows in white! Type /top10 to see legends.</div>
+                <div class="chat-system">👑 Admin RYZZ has special buttons on the right!</div>
             </div>
             <div id="chatInputArea">
                 <input type="text" id="chatInput" placeholder="Type a message... /help for commands" maxlength="100" autocomplete="off">
                 <button id="chatSend">Send</button>
             </div>
         </div>
-        <div class="controls-hint">⬆️ WASD / Arrow Keys | 🖱️ Mouse | Scroll to zoom | 👑 Glowing admin</div>
+        <div class="controls-hint">⬆️ WASD / Arrow Keys | 🖱️ Mouse | Scroll to zoom | 👑 Admin Panel (right)</div>
     </div>
 </div>
 
@@ -300,6 +377,7 @@
     let currentPerks = { speedMultiplier: 1, sizeMultiplier: 1, scoreMultiplier: 1, eatRangeMultiplier: 1 };
     let kills = 0;
     let personalBest = localStorage.getItem('ryzzPersonalBest') || 0;
+    let isAdmin = false;
     
     let cameraX = 0, cameraY = 0;
     let moveDirection = { x: 0, y: 0 };
@@ -337,6 +415,7 @@
     const chatSend = document.getElementById('chatSend');
     const adminNameSpan = document.getElementById('adminName');
     const zoomLevelSpan = document.getElementById('zoomLevel');
+    const adminPanel = document.getElementById('adminPanel');
     
     bestElement.innerText = formatScore(personalBest);
     
@@ -480,6 +559,36 @@
         if (e.key === 'Enter') sendMessage();
     });
     
+    // ADMIN BUTTON HANDLERS
+    function setupAdminButtons() {
+        // Score buttons
+        document.querySelectorAll('.admin-btn[data-points]').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const points = parseInt(btn.getAttribute('data-points'));
+                socket.emit('adminGivePoints', points);
+                addChatMessage('System', `👑 Admin gave you +${formatScore(points)} points!`, false, true);
+            });
+        });
+        
+        // Heal button
+        document.getElementById('adminHealBtn')?.addEventListener('click', () => {
+            socket.emit('adminHeal');
+            addChatMessage('System', `💚 Admin healed you to full size!`, false, true);
+        });
+        
+        // Max Size button
+        document.getElementById('adminMaxSizeBtn')?.addEventListener('click', () => {
+            socket.emit('adminMaxSize');
+            addChatMessage('System', `💪 Admin set you to MAX SIZE!`, false, true);
+        });
+        
+        // Spawn Orbs button
+        document.getElementById('adminSpawnOrbsBtn')?.addEventListener('click', () => {
+            socket.emit('adminSpawnOrbs');
+            addChatMessage('System', `🟡 Admin spawned extra orbs on the map!`, false, true);
+        });
+    }
+    
     joinBtn.onclick = () => {
         const username = usernameInput.value.trim();
         const password = passwordInput.value;
@@ -527,12 +636,16 @@
             if (players[id].username === usernameInput.value.trim()) {
                 myId = id;
                 myPlayer = players[id];
+                isAdmin = myPlayer.isAdmin;
                 if (myPlayer.isAdmin) {
                     adminNameSpan.innerText = myPlayer.username;
                     adminNameSpan.className = 'admin-glowing';
+                    adminPanel.classList.remove('hidden');
+                    setupAdminButtons();
                 } else {
                     adminNameSpan.innerText = 'None';
                     adminNameSpan.className = '';
+                    adminPanel.classList.add('hidden');
                 }
                 updateSizeDisplay(myPlayer.radius);
                 currentLevel = myPlayer.level || 1;
@@ -542,7 +655,7 @@
                 levelTitleElement.innerText = currentTitle;
                 perksElement.innerHTML = formatPerks(currentPerks);
                 if (myPlayer.isAdmin) {
-                    addChatMessage('System', '👑 You are ADMIN! Type /help', false, true);
+                    addChatMessage('System', '👑 You are ADMIN! Use the panel on the right!', false, true);
                 }
                 kills = myPlayer.kills || 0;
                 killsElement.innerText = kills;
@@ -673,8 +786,11 @@
     socket.on('adminConfirm', (isAdmin) => {
         if (isAdmin && myPlayer) {
             myPlayer.isAdmin = true;
+            isAdmin = true;
             adminNameSpan.innerText = myPlayer.username;
             adminNameSpan.className = 'admin-glowing';
+            adminPanel.classList.remove('hidden');
+            setupAdminButtons();
             addChatMessage('System', '👑 You are ADMIN!', false, true);
         }
     });
