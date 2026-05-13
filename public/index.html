@@ -869,4 +869,56 @@
             const gradient = ctx.createLinearGradient(myScreenX - myRadius, myScreenY - myRadius, myScreenX + myRadius, myScreenY + myRadius);
             gradient.addColorStop(0, '#ff0000');
             gradient.addColorStop(0.2, '#ffff00');
-           
+            gradient.addColorStop(0.4, '#00ff00');
+            gradient.addColorStop(0.6, '#00ffff');
+            gradient.addColorStop(0.8, '#0000ff');
+            gradient.addColorStop(1, '#ff00ff');
+            ctx.fillStyle = gradient;
+        } else {
+            ctx.fillStyle = myColor;
+        }
+        ctx.fill();
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 3 * zoom;
+        ctx.stroke();
+        
+        // Draw admin name with glow if admin
+        ctx.fillStyle = '#ffffff';
+        ctx.font = `bold ${Math.max(12, myRadius * 0.5)}px Arial`;
+        if (myPlayer.isAdmin) {
+            ctx.shadowBlur = 10 * zoom;
+            ctx.shadowColor = '#ffffff';
+            ctx.fillText(`${myPlayer.username} [Lvl ${currentLevel}]`, myScreenX - 35 * zoom, myScreenY - 12 * zoom);
+            ctx.shadowBlur = 0;
+            ctx.fillStyle = '#fbbf24';
+            ctx.font = `${Math.max(12, 16 * zoom)}px Arial`;
+            ctx.fillText('👑', myScreenX + 15 * zoom, myScreenY - 15 * zoom);
+        } else {
+            ctx.fillText(`${myPlayer.username} [Lvl ${currentLevel}]`, myScreenX - 35 * zoom, myScreenY - 12 * zoom);
+        }
+        
+        if (currentLevel >= 10) {
+            ctx.shadowBlur = 12 * zoom;
+            ctx.shadowColor = '#fbbf24';
+            ctx.fill();
+            ctx.shadowBlur = 0;
+        }
+        
+        if (currentLevel >= 15) {
+            ctx.beginPath();
+            ctx.arc(myScreenX, myScreenY, myRadius + 3 * zoom, 0, Math.PI * 2);
+            ctx.strokeStyle = '#a855f7';
+            ctx.lineWidth = 2 * zoom;
+            ctx.stroke();
+        }
+        if (currentLevel >= 20) {
+            ctx.beginPath();
+            ctx.arc(myScreenX, myScreenY, myRadius + 6 * zoom, 0, Math.PI * 2);
+            ctx.strokeStyle = '#fbbf24';
+            ctx.lineWidth = 2 * zoom;
+            ctx.stroke();
+        }
+    }
+</script>
+</body>
+</html>
