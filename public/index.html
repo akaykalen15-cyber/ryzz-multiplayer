@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>RYZZ.io - Multiplayer Arena</title>
+    <title>RYZZ.io</title>
     <style>
         * {
             margin: 0;
@@ -15,7 +15,7 @@
             justify-content: center;
             align-items: center;
             min-height: 100vh;
-            font-family: 'Arial', sans-serif;
+            font-family: Arial, sans-serif;
             overflow: hidden;
         }
         #joinScreen, #gameScreen {
@@ -51,18 +51,11 @@
             color: #ef4444;
             margin-top: 10px;
         }
-        #gameContainer {
-            background: #111827;
-            padding: 10px;
-            border-radius: 12px;
-            position: relative;
-        }
         canvas {
             border: 2px solid #1f2937;
             display: block;
             border-radius: 8px;
             cursor: crosshair;
-            touch-action: none;
         }
         #ui {
             margin-top: 12px;
@@ -78,63 +71,12 @@
             color: white;
             font-size: 14px;
         }
-        #leaderboard { min-width: 200px; }
-        #leaderboard h4 { margin-bottom: 5px; color: #fbbf24; }
-        #orbLegend {
-            background: #1f2937;
-            padding: 8px 15px;
-            border-radius: 8px;
-            color: white;
-            font-size: 12px;
-            display: flex;
-            gap: 15px;
-            flex-wrap: wrap;
+        #leaderboard {
+            min-width: 180px;
         }
-        .orb-dot {
-            display: inline-block;
-            width: 12px;
-            height: 12px;
-            border-radius: 50%;
-            margin-right: 4px;
-        }
-        #powerupIndicator {
-            background: #1f2937;
-            padding: 5px 12px;
-            border-radius: 8px;
-            color: white;
-            font-size: 12px;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-        #activePowerup {
-            font-weight: bold;
-        }
-        #zoomControl {
-            background: #1f2937;
-            padding: 5px 12px;
-            border-radius: 8px;
-            color: white;
-            font-size: 12px;
-            display: flex;
-            gap: 10px;
-            align-items: center;
-        }
-        #zoomControl button {
-            background: #3b82f6;
-            border: none;
-            color: white;
-            padding: 2px 10px;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 14px;
-        }
-        #zoomControl button:hover {
-            background: #2563eb;
-        }
-        #zoomLevel {
-            min-width: 45px;
-            text-align: center;
+        #leaderboard h4 {
+            margin-bottom: 5px;
+            color: #fbbf24;
         }
         #chatContainer {
             margin-top: 10px;
@@ -142,12 +84,12 @@
             border-radius: 8px;
         }
         #chatMessages {
-            height: 120px;
+            height: 100px;
             overflow-y: auto;
             background: #0a0f1e;
             border-radius: 8px 8px 0 0;
             padding: 8px;
-            font-size: 13px;
+            font-size: 12px;
         }
         #chatInputArea {
             display: flex;
@@ -159,7 +101,7 @@
             background: #111827;
             border: 1px solid #374151;
             color: white;
-            padding: 8px 12px;
+            padding: 6px 10px;
             border-radius: 6px;
             outline: none;
         }
@@ -167,33 +109,28 @@
             background: #3b82f6;
             border: none;
             color: white;
-            padding: 8px 20px;
+            padding: 6px 15px;
             border-radius: 6px;
             cursor: pointer;
         }
-        .chat-admin { color: #fbbf24; font-weight: bold; }
-        .chat-system { color: #ef4444; font-style: italic; }
-        .hidden { display: none; }
-        .admin-bold {
+        .chat-admin {
+            color: #fbbf24;
             font-weight: bold;
-            color: #ffffff;
-            text-shadow: 0 0 2px #ffffff;
         }
-        .powerup-active {
-            animation: pulse 1s infinite;
+        .chat-system {
+            color: #ef4444;
+            font-style: italic;
         }
-        @keyframes pulse {
-            0% { opacity: 1; }
-            50% { opacity: 0.7; }
-            100% { opacity: 1; }
+        .hidden {
+            display: none;
         }
     </style>
 </head>
 <body>
 <div id="joinScreen">
-    <h1>RYZZ.io</h1>
+    <h1>👑 RYZZ.io</h1>
     <input type="text" id="usernameInput" placeholder="Enter username" maxlength="20">
-    <input type="password" id="passwordInput" placeholder="Admin password" style="margin-top: 10px;">
+    <input type="password" id="passwordInput" placeholder="Admin password (if needed)" style="margin-top: 10px;">
     <br>
     <button id="joinBtn">Join Game</button>
     <div id="errorMsg"></div>
@@ -201,30 +138,10 @@
 
 <div id="gameScreen" class="hidden">
     <div id="gameContainer">
-        <canvas id="gameCanvas" width="1200" height="800"></canvas>
+        <canvas id="gameCanvas" width="1000" height="700"></canvas>
         <div id="ui">
             <div class="stats">🎯 Score: <span id="scoreValue">0</span></div>
-            <div class="stats">👑 Admin: <span id="adminName" class="admin-bold"></span></div>
-            <div id="powerupIndicator">
-                <span>⚡</span>
-                <span id="activePowerup">None</span>
-            </div>
-            <div id="orbLegend">
-                <div><span class="orb-dot" style="background: #fbbf24;"></span> 10</div>
-                <div><span class="orb-dot" style="background: #22c55e;"></span> 25</div>
-                <div><span class="orb-dot" style="background: #3b82f6;"></span> 50</div>
-                <div><span class="orb-dot" style="background: #a855f7;"></span> 100</div>
-                <div><span class="orb-dot" style="background: #00ffff;"></span> ⚡ Speed</div>
-                <div><span class="orb-dot" style="background: #ffd700;"></span> 🛡️ Shield</div>
-                <div><span class="orb-dot" style="background: #a855f7;"></span> 🧲 Magnet</div>
-            </div>
-            <div id="zoomControl">
-                <span>🔍</span>
-                <button id="zoomOutBtn">-</button>
-                <span id="zoomLevel">100%</span>
-                <button id="zoomInBtn">+</button>
-                <button id="zoomResetBtn">Reset</button>
-            </div>
+            <div class="stats">👑 Admin: <span id="adminName"></span></div>
             <div id="leaderboard">
                 <h4>🏆 LEADERBOARD</h4>
                 <div id="leaderboardList"></div>
@@ -233,7 +150,7 @@
         <div id="chatContainer">
             <div id="chatMessages"></div>
             <div id="chatInputArea">
-                <input type="text" id="chatInput" placeholder="Type message... Admin: /help" autocomplete="off">
+                <input type="text" id="chatInput" placeholder="Type a message..." maxlength="100">
                 <button id="chatSend">Send</button>
             </div>
         </div>
@@ -242,183 +159,174 @@
 
 <script src="/socket.io/socket.io.js"></script>
 <script>
-    // Disable page zoom
-    window.addEventListener('wheel', (e) => {
-        if (e.ctrlKey || e.metaKey) e.preventDefault();
-    }, { passive: false });
-    window.addEventListener('keydown', (e) => {
-        if ((e.ctrlKey || e.metaKey) && (e.key === '+' || e.key === '-' || e.key === '0')) e.preventDefault();
-    });
-
     const socket = io();
+    
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
     
     let players = {};
     let myId = null;
     let myPlayer = null;
+    let orbs = [];
+    let currentScore = 0;
+    
     let cameraX = 0, cameraY = 0;
     let mouseX = 0, mouseY = 0;
-    let orbs = [];
-    let powerups = [];
-    let currentScore = 0;
-    let activePowerup = null;
-    let powerupEndTime = 0;
     
-    let zoom = 1.0;
-    const MIN_ZOOM = 0.5;
-    const MAX_ZOOM = 2.0;
-    let canvasWidth = 1200;
-    let canvasHeight = 800;
-    
+    // DOM elements
     const joinScreen = document.getElementById('joinScreen');
     const gameScreen = document.getElementById('gameScreen');
     const usernameInput = document.getElementById('usernameInput');
     const passwordInput = document.getElementById('passwordInput');
     const joinBtn = document.getElementById('joinBtn');
     const errorMsg = document.getElementById('errorMsg');
-    const canvas = document.getElementById('gameCanvas');
-    const ctx = canvas.getContext('2d');
     const scoreElement = document.getElementById('scoreValue');
     const leaderboardList = document.getElementById('leaderboardList');
     const chatMessages = document.getElementById('chatMessages');
     const chatInput = document.getElementById('chatInput');
     const chatSend = document.getElementById('chatSend');
     const adminNameSpan = document.getElementById('adminName');
-    const zoomLevelSpan = document.getElementById('zoomLevel');
-    const activePowerupSpan = document.getElementById('activePowerup');
     
-    function updateCanvasSize() {
-        canvas.width = canvasWidth * zoom;
-        canvas.height = canvasHeight * zoom;
-        canvas.style.width = `${canvasWidth * zoom}px`;
-        canvas.style.height = `${canvasHeight * zoom}px`;
-        zoomLevelSpan.innerText = `${Math.round(zoom * 100)}%`;
-    }
-    
-    function setZoom(newZoom) {
-        zoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, newZoom));
-        updateCanvasSize();
-        if (myPlayer) { updateCamera(); draw(); }
-    }
-    
-    canvas.addEventListener('wheel', (e) => {
-        e.preventDefault();
-        setZoom(e.deltaY < 0 ? zoom + 0.1 : zoom - 0.1);
-    });
-    document.getElementById('zoomInBtn').onclick = () => setZoom(zoom + 0.1);
-    document.getElementById('zoomOutBtn').onclick = () => setZoom(zoom - 0.1);
-    document.getElementById('zoomResetBtn').onclick = () => setZoom(1.0);
-    
-    function updatePowerupDisplay() {
-        if (activePowerup && Date.now() < powerupEndTime) {
-            const remaining = Math.ceil((powerupEndTime - Date.now()) / 1000);
-            activePowerupSpan.innerHTML = `${activePowerup} (${remaining}s)`;
-            activePowerupSpan.parentElement.style.background = '#fbbf24';
-            activePowerupSpan.parentElement.style.color = '#111827';
+    function addChatMessage(sender, message, isAdmin = false, isSystem = false) {
+        const div = document.createElement('div');
+        if (isSystem) {
+            div.innerHTML = `<span class="chat-system">🔔 ${message}</span>`;
+        } else if (isAdmin) {
+            div.innerHTML = `<span class="chat-admin">👑 ${sender}:</span> ${message}`;
         } else {
-            activePowerupSpan.innerHTML = 'None';
-            activePowerupSpan.parentElement.style.background = '#1f2937';
-            activePowerupSpan.parentElement.style.color = 'white';
-            activePowerup = null;
+            div.innerHTML = `<span>💬 ${sender}:</span> ${message}`;
+        }
+        chatMessages.appendChild(div);
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+        while (chatMessages.children.length > 50) {
+            chatMessages.removeChild(chatMessages.firstChild);
         }
     }
     
-    function addChatMessage(sender, message, isSystem = false, isAdmin = false) {
-        const div = document.createElement('div');
-        if (isSystem) div.innerHTML = `<span class="chat-system">🔔 ${message}</span>`;
-        else if (isAdmin) div.innerHTML = `<span class="chat-admin">👑 ${sender}:</span> <span style="color:white"> ${message}</span>`;
-        else div.innerHTML = `<span>💬 ${sender}:</span> <span style="color:#ccc"> ${message}</span>`;
-        chatMessages.appendChild(div);
-        chatMessages.scrollTop = chatMessages.scrollHeight;
-        while (chatMessages.children.length > 50) chatMessages.removeChild(chatMessages.firstChild);
-    }
-    
-    function sendChat() {
+    function sendMessage() {
         const text = chatInput.value.trim();
-        if (!text) return;
+        if (text === '') return;
         socket.emit('chatMessage', { message: text });
         chatInput.value = '';
         chatInput.focus();
     }
-    chatSend.onclick = sendChat;
-    chatInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') { e.preventDefault(); sendChat(); } });
+    
+    chatSend.onclick = sendMessage;
+    chatInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') sendMessage();
+    });
     
     joinBtn.onclick = () => {
         const username = usernameInput.value.trim();
         const password = passwordInput.value;
-        if (!username) { errorMsg.innerText = 'Please enter a username'; return; }
+        if (username === '') {
+            errorMsg.innerText = 'Please enter a username';
+            return;
+        }
+        
         joinScreen.classList.add('hidden');
         gameScreen.classList.remove('hidden');
+        
         socket.emit('joinGame', { username: username, password: password });
-        requestAnimationFrame(gameLoop);
-        setInterval(updatePowerupDisplay, 100);
+        
+        // Start game loop
+        function gameLoop() {
+            if (myPlayer) {
+                movePlayer();
+                checkCollisions();
+                draw();
+            }
+            requestAnimationFrame(gameLoop);
+        }
+        gameLoop();
     };
     
+    // Socket events
     socket.on('currentPlayers', (serverPlayers) => {
         players = serverPlayers;
-        for (const id in players) {
+        for (let id in players) {
             if (players[id].username === usernameInput.value.trim()) {
                 myId = id;
                 myPlayer = players[id];
+                adminNameSpan.innerText = myPlayer.isAdmin ? myPlayer.username : 'None';
                 if (myPlayer.isAdmin) {
-                    addChatMessage('System', '👑 You are ADMIN! Type /help', true);
-                    adminNameSpan.innerHTML = myPlayer.username;
-                } else {
-                    adminNameSpan.innerHTML = 'None';
+                    addChatMessage('System', 'You are ADMIN!', false, true);
                 }
             }
         }
     });
     
-    socket.on('currentBots', (serverBots) => {
-        for (const id in serverBots) {
-            const bot = serverBots[id];
-            players[id] = { ...bot, isBot: true };
+    socket.on('currentOrbs', (serverOrbs) => {
+        orbs = serverOrbs;
+        console.log(`Received ${orbs.length} orbs from server`);
+    });
+    
+    socket.on('newPlayer', (playerData) => {
+        players[playerData.id] = playerData;
+        addChatMessage('System', `${playerData.username} joined!`, false, true);
+    });
+    
+    socket.on('playerMoved', (playerData) => {
+        if (players[playerData.id]) {
+            players[playerData.id].x = playerData.x;
+            players[playerData.id].y = playerData.y;
         }
     });
     
-    socket.on('updateBots', (serverBots) => {
-        for (const id in players) {
-            if (players[id].isBot && !serverBots[id]) {
-                delete players[id];
-            }
-        }
-        for (const id in serverBots) {
-            const bot = serverBots[id];
-            players[id] = { ...bot, isBot: true };
+    socket.on('playerDisconnected', (playerId) => {
+        if (players[playerId]) {
+            addChatMessage('System', `${players[playerId].username} left`, false, true);
+            delete players[playerId];
         }
     });
-    
-    socket.on('currentPowerups', (serverPowerups) => { powerups = serverPowerups; });
-    socket.on('currentOrbs', (serverOrbs) => { orbs = serverOrbs; });
-    socket.on('nameRejected', (msg) => { alert(msg); window.location.reload(); });
-    socket.on('newPlayer', (playerData) => { players[playerData.id] = playerData; addChatMessage('System', `${playerData.username} joined!`, true); });
-    socket.on('playerMoved', (playerData) => { if (players[playerData.id]) { players[playerData.id].x = playerData.x; players[playerData.id].y = playerData.y; } });
-    socket.on('playerDisconnected', (playerId) => { if (players[playerId]) { addChatMessage('System', `${players[playerId].username} left`, true); delete players[playerId]; } });
     
     socket.on('leaderboardUpdate', (leaderboard) => {
-        let html = '';
+        let html = '<h4>🏆 LEADERBOARD</h4>';
         for (let i = 0; i < leaderboard.length; i++) {
             const p = leaderboard[i];
             const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : '  ';
-            if (p.username === 'RYZZ') {
-                html += `<div>${medal} <strong style="color:#ffffff;">${p.username}</strong> - ${p.score}</div>`;
-            } else {
-                html += `<div>${medal} ${p.username} - ${p.score}</div>`;
-            }
+            html += `<div>${medal} ${p.username} - ${p.score}</div>`;
         }
         leaderboardList.innerHTML = html;
     });
     
     socket.on('scoreUpdate', (data) => {
-        if (players[data.id]) { players[data.id].score = data.score; players[data.id].radius = data.radius; }
-        if (data.id === myId) { currentScore = data.score; scoreElement.innerText = currentScore; if (myPlayer) myPlayer.radius = data.radius; }
+        if (players[data.id]) {
+            players[data.id].score = data.score;
+            players[data.id].radius = data.radius;
+        }
+        if (data.id === myId) {
+            currentScore = data.score;
+            scoreElement.innerText = currentScore;
+            if (myPlayer) myPlayer.radius = data.radius;
+        }
     });
-    socket.on('orbCollected', (orbId) => { const index = orbs.findIndex(o => o.id === orbId); if (index !== -1) orbs.splice(index, 1); });
-    socket.on('powerupCollected', (powerupId) => { const index = powerups.findIndex(p => p.id === powerupId); if (index !== -1) powerups.splice(index, 1); });
-    socket.on('chatMessage', (data) => { addChatMessage(data.username, data.message, data.isSystem, data.isAdmin); });
-    socket.on('adminConfirm', (msg) => addChatMessage('System', msg, true));
-    socket.on('kicked', (msg) => { alert(msg); window.location.reload(); });
     
+    socket.on('orbCollected', (orbId) => {
+        const index = orbs.findIndex(o => o.id === orbId);
+        if (index !== -1) {
+            orbs.splice(index, 1);
+        }
+    });
+    
+    socket.on('chatMessage', (data) => {
+        addChatMessage(data.username, data.message, data.isAdmin);
+    });
+    
+    socket.on('adminConfirm', (isAdmin) => {
+        if (isAdmin && myPlayer) {
+            myPlayer.isAdmin = true;
+            adminNameSpan.innerText = myPlayer.username;
+            addChatMessage('System', 'You are ADMIN!', false, true);
+        }
+    });
+    
+    socket.on('nameRejected', (msg) => {
+        alert(msg);
+        window.location.reload();
+    });
+    
+    // Mouse tracking
     canvas.addEventListener('mousemove', (e) => {
         if (!myPlayer) return;
         const rect = canvas.getBoundingClientRect();
@@ -426,10 +334,10 @@
         const scaleY = canvas.height / rect.height;
         let canvasX = (e.clientX - rect.left) * scaleX;
         let canvasY = (e.clientY - rect.top) * scaleY;
-        mouseX = (canvasX / zoom) + cameraX;
-        mouseY = (canvasY / zoom) + cameraY;
-        mouseX = Math.min(Math.max(mouseX, 0), 2400);
-        mouseY = Math.min(Math.max(mouseY, 0), 1600);
+        mouseX = canvasX + cameraX;
+        mouseY = canvasY + cameraY;
+        mouseX = Math.min(Math.max(mouseX, 0), 2000);
+        mouseY = Math.min(Math.max(mouseY, 0), 2000);
     });
     
     function movePlayer() {
@@ -438,212 +346,100 @@
         const dy = mouseY - myPlayer.y;
         const distance = Math.hypot(dx, dy);
         if (distance > 1) {
-            let speed = Math.min(8, 200 / myPlayer.radius);
-            if (activePowerup === 'speed' && Date.now() < powerupEndTime) speed *= 2;
+            const speed = Math.min(5, 150 / myPlayer.radius);
             myPlayer.x += (dx / distance) * speed;
             myPlayer.y += (dy / distance) * speed;
         }
-        myPlayer.x = Math.min(Math.max(myPlayer.x, myPlayer.radius + 5), 2400 - myPlayer.radius - 5);
-        myPlayer.y = Math.min(Math.max(myPlayer.y, myPlayer.radius + 5), 1600 - myPlayer.radius - 5);
+        myPlayer.x = Math.min(Math.max(myPlayer.x, myPlayer.radius + 5), 2000 - myPlayer.radius - 5);
+        myPlayer.y = Math.min(Math.max(myPlayer.y, myPlayer.radius + 5), 2000 - myPlayer.radius - 5);
         socket.emit('playerMovement', { x: myPlayer.x, y: myPlayer.y });
     }
     
     function checkCollisions() {
         if (!myPlayer) return;
         
-        // Orb collisions
+        // Check orb collisions
         for (let i = 0; i < orbs.length; i++) {
             const orb = orbs[i];
             const dist = Math.hypot(myPlayer.x - orb.x, myPlayer.y - orb.y);
             if (dist < myPlayer.radius + orb.radius) {
+                console.log('Collision detected! Sending collectOrb');
                 socket.emit('collectOrb', orb.id);
                 break;
-            }
-        }
-        
-        // Power-up collisions
-        for (let i = 0; i < powerups.length; i++) {
-            const powerup = powerups[i];
-            const dist = Math.hypot(myPlayer.x - powerup.x, myPlayer.y - powerup.y);
-            if (dist < myPlayer.radius + powerup.radius) {
-                socket.emit('collectPowerup', powerup.id);
-                if (powerup.type === 'speed') {
-                    activePowerup = '🚀 Speed Boost';
-                    powerupEndTime = Date.now() + 8000;
-                } else if (powerup.type === 'shield') {
-                    activePowerup = '🛡️ Shield';
-                    powerupEndTime = Date.now() + 8000;
-                } else if (powerup.type === 'magnet') {
-                    activePowerup = '🧲 Magnet';
-                    powerupEndTime = Date.now() + 10000;
-                } else if (powerup.type === 'vision') {
-                    activePowerup = '👁️ Vision';
-                    powerupEndTime = Date.now() + 5000;
-                } else if (powerup.type === 'split') {
-                    activePowerup = '💥 Split';
-                    setTimeout(() => { activePowerup = null; }, 100);
-                }
-                break;
-            }
-        }
-        
-        // Magnet effect
-        if (activePowerup === '🧲 Magnet' && Date.now() < powerupEndTime) {
-            for (const orb of orbs) {
-                const dx = myPlayer.x - orb.x;
-                const dy = myPlayer.y - orb.y;
-                const dist = Math.hypot(dx, dy);
-                if (dist < 150) {
-                    const angle = Math.atan2(dy, dx);
-                    orb.x += Math.cos(angle) * 5;
-                    orb.y += Math.sin(angle) * 5;
-                }
-            }
-        }
-        
-        // Player collisions
-        for (const id in players) {
-            if (id === myId) continue;
-            const other = players[id];
-            if (other.isBot) continue;
-            
-            const dist = Math.hypot(myPlayer.x - other.x, myPlayer.y - other.y);
-            const combinedRadius = myPlayer.radius + other.radius;
-            
-            if (dist < combinedRadius) {
-                const hasShield = (activePowerup === '🛡️ Shield' && Date.now() < powerupEndTime);
-                if (myPlayer.radius > other.radius && !hasShield) {
-                    socket.emit('eatPlayer', id);
-                    addChatMessage('System', `🍽️ You ate ${other.username}!`, true);
-                } else if (other.radius > myPlayer.radius && !hasShield) {
-                    socket.emit('eatPlayer', myId);
-                    addChatMessage('System', `💀 You were eaten by ${other.username}!`, true);
-                    myPlayer.x = Math.random() * 2200 + 100;
-                    myPlayer.y = Math.random() * 1400 + 100;
-                    socket.emit('playerMovement', { x: myPlayer.x, y: myPlayer.y });
-                } else {
-                    const angle = Math.atan2(myPlayer.y - other.y, myPlayer.x - other.x);
-                    myPlayer.x += Math.cos(angle) * 15;
-                    myPlayer.y += Math.sin(angle) * 15;
-                }
             }
         }
     }
     
     function updateCamera() {
         if (!myPlayer) return;
-        const effectiveWidth = canvas.width / zoom;
-        const effectiveHeight = canvas.height / zoom;
-        cameraX = myPlayer.x - effectiveWidth / 2;
-        cameraY = myPlayer.y - effectiveHeight / 2;
-        cameraX = Math.min(Math.max(cameraX, 0), 2400 - effectiveWidth);
-        cameraY = Math.min(Math.max(cameraY, 0), 1600 - effectiveHeight);
+        cameraX = myPlayer.x - canvas.width / 2;
+        cameraY = myPlayer.y - canvas.height / 2;
+        cameraX = Math.min(Math.max(cameraX, 0), 2000 - canvas.width);
+        cameraY = Math.min(Math.max(cameraY, 0), 2000 - canvas.height);
     }
     
     function draw() {
         if (!myPlayer) return;
         updateCamera();
+        
+        // Background
         ctx.fillStyle = '#0a0f1e';
         ctx.fillRect(0, 0, canvas.width, canvas.height);
         
-        // Vision effect
-        let visionRadius = Infinity;
-        if (activePowerup === '👁️ Vision' && Date.now() < powerupEndTime) {
-            visionRadius = Infinity;
-        }
-        
         // Draw orbs
         for (const orb of orbs) {
-            const screenX = (orb.x - cameraX) * zoom;
-            const screenY = (orb.y - cameraY) * zoom;
-            const radius = orb.radius * zoom;
-            if (screenX + radius > 0 && screenX - radius < canvas.width && screenY + radius > 0 && screenY - radius < canvas.height) {
+            const screenX = orb.x - cameraX;
+            const screenY = orb.y - cameraY;
+            if (screenX + orb.radius > 0 && screenX - orb.radius < canvas.width &&
+                screenY + orb.radius > 0 && screenY - orb.radius < canvas.height) {
                 ctx.beginPath();
-                ctx.arc(screenX, screenY, radius, 0, Math.PI * 2);
-                ctx.fillStyle = orb.color || '#fbbf24';
+                ctx.arc(screenX, screenY, orb.radius, 0, Math.PI * 2);
+                ctx.fillStyle = orb.color;
                 ctx.fill();
-                if (orb.value >= 50) {
-                    ctx.shadowBlur = 8 * zoom;
-                    ctx.shadowColor = orb.color;
-                    ctx.fill();
-                    ctx.shadowBlur = 0;
+            }
+        }
+        
+        // Draw other players
+        for (const id in players) {
+            if (id === myId) continue;
+            const p = players[id];
+            const screenX = p.x - cameraX;
+            const screenY = p.y - cameraY;
+            if (screenX + p.radius > 0 && screenX - p.radius < canvas.width &&
+                screenY + p.radius > 0 && screenY - p.radius < canvas.height) {
+                ctx.beginPath();
+                ctx.arc(screenX, screenY, p.radius, 0, Math.PI * 2);
+                ctx.fillStyle = p.isAdmin ? '#fbbf24' : '#ef4444';
+                ctx.fill();
+                ctx.fillStyle = 'white';
+                ctx.font = '12px Arial';
+                ctx.fillText(p.username, screenX - 20, screenY - 15);
+                if (p.isAdmin) {
+                    ctx.fillStyle = '#fbbf24';
+                    ctx.fillText('👑', screenX + 10, screenY - 15);
                 }
             }
         }
         
-        // Draw powerups
-        for (const powerup of powerups) {
-            const screenX = (powerup.x - cameraX) * zoom;
-            const screenY = (powerup.y - cameraY) * zoom;
-            const radius = powerup.radius * zoom;
-            ctx.beginPath();
-            ctx.arc(screenX, screenY, radius, 0, Math.PI * 2);
-            ctx.fillStyle = powerup.color;
-            ctx.fill();
-            ctx.fillStyle = 'white';
-            ctx.font = `${12 * zoom}px Arial`;
-            ctx.fillText(powerup.type === 'speed' ? '🚀' : powerup.type === 'shield' ? '🛡️' : powerup.type === 'magnet' ? '🧲' : powerup.type === 'vision' ? '👁️' : '💥', screenX - 6, screenY + 5);
-        }
-        
-        // Draw players
-        for (const id in players) {
-            if (id === myId) continue;
-            const p = players[id];
-            const screenX = (p.x - cameraX) * zoom;
-            const screenY = (p.y - cameraY) * zoom;
-            const radius = p.radius * zoom;
-            const distToPlayer = Math.hypot(myPlayer.x - p.x, myPlayer.y - p.y);
-            if (distToPlayer < visionRadius && screenX + radius > 0 && screenX - radius < canvas.width && screenY + radius > 0 && screenY - radius < canvas.height) {
-                ctx.beginPath();
-                ctx.arc(screenX, screenY, radius, 0, Math.PI * 2);
-                if (p.isBot) ctx.fillStyle = '#a855f7';
-                else if (p.radius > myPlayer.radius) ctx.fillStyle = '#ff4444';
-                else ctx.fillStyle = '#ef4444';
-                ctx.fill();
-                ctx.fillStyle = 'white';
-                ctx.font = `${Math.max(10, 10 * zoom)}px Arial`;
-                const displayName = p.isBot ? '🤖 ' + p.username : p.username;
-                ctx.fillText(displayName, screenX - (25 * zoom), screenY - (15 * zoom));
-            }
-        }
-        
         // Draw my player
-        const myScreenX = (myPlayer.x - cameraX) * zoom;
-        const myScreenY = (myPlayer.y - cameraY) * zoom;
-        const myRadius = myPlayer.radius * zoom;
+        const myScreenX = myPlayer.x - cameraX;
+        const myScreenY = myPlayer.y - cameraY;
         ctx.beginPath();
-        ctx.arc(myScreenX, myScreenY, myRadius, 0, Math.PI * 2);
-        if (activePowerup === '🛡️ Shield' && Date.now() < powerupEndTime) {
-            ctx.fillStyle = '#ffd700';
-            ctx.fill();
-            ctx.strokeStyle = '#ffffff';
-            ctx.lineWidth = 3 * zoom;
-            ctx.stroke();
-        } else if (activePowerup === '🚀 Speed Boost' && Date.now() < powerupEndTime) {
-            ctx.fillStyle = '#00ffff';
-            ctx.fill();
-        } else {
-            ctx.fillStyle = '#3b82f6';
-            ctx.fill();
-            ctx.strokeStyle = '#ffffff';
-            ctx.lineWidth = 3 * zoom;
-            ctx.stroke();
-        }
+        ctx.arc(myScreenX, myScreenY, myPlayer.radius, 0, Math.PI * 2);
+        ctx.fillStyle = '#3b82f6';
+        ctx.fill();
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 3;
+        ctx.stroke();
         ctx.fillStyle = '#ffffff';
-        ctx.font = `bold ${Math.max(12, myRadius * 0.6)}px Arial`;
-        ctx.fillText(myPlayer.username, myScreenX - (18 * zoom), myScreenY - (12 * zoom));
-    }
-    
-    function gameLoop() {
-        if (myPlayer) {
-            movePlayer();
-            checkCollisions();
-            draw();
+        ctx.font = `bold ${Math.max(12, myPlayer.radius * 0.5)}px Arial`;
+        ctx.fillText(myPlayer.username, myScreenX - 15, myScreenY - 12);
+        if (myPlayer.isAdmin) {
+            ctx.fillStyle = '#fbbf24';
+            ctx.font = '16px Arial';
+            ctx.fillText('👑', myScreenX + 5, myScreenY - 15);
         }
-        requestAnimationFrame(gameLoop);
     }
-    
-    updateCanvasSize();
 </script>
 </body>
 </html>
