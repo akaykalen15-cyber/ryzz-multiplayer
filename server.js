@@ -21,7 +21,6 @@ const MAP_HEIGHT = 1600;
 let orbs = [];
 let powerups = [];
 
-// ⚡ Power-up types
 const powerupTypes = [
     { type: 'speed', color: '#00ffff', value: 'speed', name: '🚀 Speed Boost', duration: 8000 },
     { type: 'shield', color: '#ffd700', value: 'shield', name: '🛡️ Shield', duration: 8000 },
@@ -31,10 +30,10 @@ const powerupTypes = [
 ];
 
 const orbTypes = [
-    { color: '#fbbf24', value: 10, name: 'yellow', weight: 50 },
+    { color: '#fbbf24', value: 10, name: 'yellow', weight: 45 },
     { color: '#22c55e', value: 25, name: 'green', weight: 25 },
-    { color: '#3b82f6', value: 50, name: 'blue', weight: 15 },
-    { color: '#a855f7', value: 100, name: 'purple', weight: 10 }
+    { color: '#3b82f6', value: 50, name: 'blue', weight: 18 },
+    { color: '#a855f7', value: 100, name: 'purple', weight: 12 }
 ];
 
 function getRandomOrbType() {
@@ -48,6 +47,7 @@ function getRandomOrbType() {
     return orbTypes[0];
 }
 
+// Generate MORE orbs
 function generateOrbs(count) {
     for (let i = 0; i < count; i++) {
         const orbType = getRandomOrbType();
@@ -63,7 +63,6 @@ function generateOrbs(count) {
     }
 }
 
-// ⚡ Generate power-up
 function generatePowerup() {
     const powerupType = powerupTypes[Math.floor(Math.random() * powerupTypes.length)];
     powerups.push({
@@ -75,7 +74,6 @@ function generatePowerup() {
     });
 }
 
-// 🤖 Generate bot
 function generateBot() {
     const botNames = ['BotAlpha', 'BotBeta', 'BotGamma', 'BotDelta', 'BotEcho', 'BotZeta', 'BotTheta', 'BotSigma'];
     const name = botNames[Math.floor(Math.random() * botNames.length)] + Math.floor(Math.random() * 99);
@@ -122,22 +120,22 @@ function moveBots() {
         
         let moveX = 0, moveY = 0;
         
-        if (nearestPlayer && playerDist < 200) {
+        if (nearestPlayer && playerDist < 250) {
             if (bot.radius > nearestPlayer.radius + 10) {
                 const dx = nearestPlayer.x - bot.x;
                 const dy = nearestPlayer.y - bot.y;
                 const dist = Math.hypot(dx, dy);
                 if (dist > 0) {
-                    moveX = (dx / dist) * 3;
-                    moveY = (dy / dist) * 3;
+                    moveX = (dx / dist) * 4;
+                    moveY = (dy / dist) * 4;
                 }
             } else if (nearestPlayer.radius > bot.radius + 10) {
                 const dx = bot.x - nearestPlayer.x;
                 const dy = bot.y - nearestPlayer.y;
                 const dist = Math.hypot(dx, dy);
                 if (dist > 0) {
-                    moveX = (dx / dist) * 4;
-                    moveY = (dy / dist) * 4;
+                    moveX = (dx / dist) * 5;
+                    moveY = (dy / dist) * 5;
                 }
             }
         }
@@ -147,13 +145,13 @@ function moveBots() {
             const dy = nearestOrb.y - bot.y;
             const dist = Math.hypot(dx, dy);
             if (dist > 0) {
-                moveX = (dx / dist) * 2.5;
-                moveY = (dy / dist) * 2.5;
+                moveX = (dx / dist) * 3;
+                moveY = (dy / dist) * 3;
             }
         }
         
-        moveX += (Math.random() - 0.5) * 1.5;
-        moveY += (Math.random() - 0.5) * 1.5;
+        moveX += (Math.random() - 0.5) * 2;
+        moveY += (Math.random() - 0.5) * 2;
         
         bot.x += moveX;
         bot.y += moveY;
@@ -211,43 +209,51 @@ function checkBotPlayerCollisions() {
     }
 }
 
-generateOrbs(150);
-for (let i = 0; i < 5; i++) {
+// START WITH MORE ORBS
+generateOrbs(200);
+
+// START WITH 6 BOTS
+for (let i = 0; i < 6; i++) {
     generateBot();
 }
-// Generate initial power-ups
-for (let i = 0; i < 3; i++) {
+
+// START WITH 4 POWERUPS
+for (let i = 0; i < 4; i++) {
     generatePowerup();
 }
 
+// FASTER BOT MOVEMENT UPDATE
 setInterval(() => {
     moveBots();
     checkBotPlayerCollisions();
     io.emit('updateBots', bots);
-}, 100);
+}, 50);  // 50ms = faster bot movement
 
+// FASTER ORB RESPAWN
 setInterval(() => {
-    if (orbs.length < 100) {
-        generateOrbs(25);
+    if (orbs.length < 150) {
+        generateOrbs(40);
+        console.log(`Low on orbs (${orbs.length}), generated 40 more`);
     } else {
-        generateOrbs(5);
+        generateOrbs(15);
     }
-}, 2000);
+}, 1000);  // Every 1 second instead of 2
 
-// ⚡ Respawn power-ups
+// POWER-UP RESPAWN
 setInterval(() => {
-    if (powerups.length < 4) {
+    if (powerups.length < 5) {
         generatePowerup();
-        console.log(`Generated new power-up, total: ${powerups.length}`);
     }
-}, 15000);
+}, 10000);  // Every 10 seconds
 
+// BOT RESPAWN
 setInterval(() => {
     const botCount = Object.keys(bots).length;
-    if (botCount < 3) {
+    if (botCount < 4) {
         generateBot();
+        console.log(`Low bots (${botCount}), spawned new one`);
     }
-}, 10000);
+}, 8000);
 
 io.on('connection', (socket) => {
     console.log('Player connected:', socket.id);
@@ -301,7 +307,7 @@ io.on('connection', (socket) => {
             socket.emit('adminConfirm', '👑 You are ADMIN! Type /help for commands');
         }
         
-        console.log(`${username} joined`);
+        console.log(`${username} joined, orbs: ${orbs.length}, bots: ${Object.keys(bots).length}`);
     });
 
     socket.on('playerMovement', (data) => {
@@ -334,7 +340,6 @@ io.on('connection', (socket) => {
         }
     });
 
-    // ⚡ Collect power-up
     socket.on('collectPowerup', (powerupId) => {
         if (!players[socket.id]) return;
         
@@ -356,7 +361,6 @@ io.on('connection', (socket) => {
                     }
                 }, powerup.duration);
             } else if (powerup.type === 'split') {
-                // Split effect - double the player? For now just a bonus
                 player.score += 50;
                 player.radius = Math.min(80, player.radius + 5);
                 updateLeaderboard();
@@ -516,5 +520,5 @@ function processAdminCommand(socket, command) {
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, '0.0.0.0', () => {
     console.log(`✅ RYZZ.io server running on port ${PORT}`);
-    console.log(`⚡ Power-ups enabled!`);
+    console.log(`⚡ Power-ups enabled | 🚀 Fast mode enabled`);
 });
