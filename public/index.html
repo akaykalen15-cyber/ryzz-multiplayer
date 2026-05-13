@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>RYZZ.io - Faster Gameplay</title>
+    <title>RYZZ.io - Power-ups & Top 10</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; user-select: none; }
         body {
@@ -103,6 +103,8 @@
         .admin-btn-gold:hover { background:#f59e0b; }
         .admin-btn-group { display:flex; flex-wrap:wrap; gap:5px; justify-content:center; }
         .player-select { background:#1f2937; border:1px solid #374151; color:white; padding:4px 6px; border-radius:6px; font-size:10px; width:100%; margin-bottom:8px; }
+        .powerup-active { animation: pulse 1s infinite; }
+        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.7; } 100% { opacity: 1; } }
     </style>
 </head>
 <body>
@@ -153,6 +155,7 @@
             </div>
             <div class="stats">🎯 Lvl: <span id="levelValue">1</span> <span id="levelTitle"></span></div>
             <div class="stats">⚡ <span id="perksValue">0%</span></div>
+            <div class="stats">⚡ Power: <span id="activePowerup">None</span></div>
             <div class="stats">👑 Admin: <span id="adminName"></span></div>
             <div id="zoomControl">
                 <span>🔍</span>
@@ -174,14 +177,14 @@
         <div id="chatOverlay">
             <div id="chatMessages">
                 <div class="chat-system">🔔 Welcome! WASD or Arrow keys to move. Mouse to aim.</div>
-                <div class="chat-system">🚀 Speed is now faster at all sizes!</div>
+                <div class="chat-system">⚡ Collect power-ups for special abilities!</div>
             </div>
             <div id="chatInputArea">
                 <input type="text" id="chatInput" placeholder="Type a message... /help for commands" maxlength="100" autocomplete="off">
                 <button id="chatSend">Send</button>
             </div>
         </div>
-        <div class="controls-hint">⬆️ WASD / Arrow Keys | 🖱️ Mouse | Scroll to zoom (2%-300%)</div>
+        <div class="controls-hint">⬆️ WASD / Arrow Keys | 🖱️ Mouse | Scroll to zoom (2%-300%) | ⚡ Power-ups</div>
     </div>
 </div>
 
@@ -200,6 +203,7 @@
     let myId = null;
     let myPlayer = null;
     let orbs = [];
+    let powerups = [];
     let currentScore = 0;
     let currentSize = 20;
     let currentLevel = 1;
@@ -208,6 +212,8 @@
     let kills = 0;
     let personalBest = localStorage.getItem('ryzzPersonalBest') || 0;
     let isAdmin = false;
+    let activePowerup = null;
+    let powerupEndTime = 0;
     
     let cameraX = 0, cameraY = 0;
     let moveDirection = { x: 0, y: 0 };
@@ -238,6 +244,7 @@
     const levelElement = document.getElementById('levelValue');
     const levelTitleElement = document.getElementById('levelTitle');
     const perksElement = document.getElementById('perksValue');
+    const activePowerupSpan = document.getElementById('activePowerup');
     const leaderboardList = document.getElementById('leaderboardList');
     const allTimeList = document.getElementById('allTimeList');
     const chatMessages = document.getElementById('chatMessages');
@@ -255,6 +262,28 @@
         if (score >= 1_000_000) return (score / 1_000_000).toFixed(1) + 'M';
         if (score >= 1_000) return (score / 1_000).toFixed(1) + 'K';
         return score.toString();
+    }
+    
+    function getPowerupIcon(type) {
+        const icons = {
+            'speed': '🚀',
+            'shield': '🛡️',
+            'magnet': '🧲',
+            'double': '💥',
+            'vision': '👁️'
+        };
+        return icons[type] || '⚡';
+    }
+    
+    function updatePowerupDisplay() {
+        if (activePowerup && powerupEndTime > Date.now()) {
+            const remaining = Math.ceil((powerupEndTime - Date.now()) / 1000);
+            activePowerupSpan.innerHTML = `${getPowerupIcon(activePowerup)} ${remaining}s`;
+            activePowerupSpan.parentElement.style.background = 'rgba(0,0,0,0.8)';
+        } else {
+            activePowerupSpan.innerHTML = 'None';
+            activePowerup = null;
+        }
     }
     
     function formatPerks(perks) {
@@ -475,7 +504,9 @@
                 draw();
             }
             requestAnimationFrame(gameLoop);
+            updatePowerupDisplay();
         }
+        setInterval(updatePowerupDisplay, 100);
         gameLoop();
     };
     
@@ -494,6 +525,17 @@
             html = '<div style="color:#666;">Be the first!</div>';
         }
         allTimeList.innerHTML = html;
+    });
+    
+    socket.on('currentPowerups', (serverPowerups) => {
+        powerups = serverPowerups;
+    });
+    
+    socket.on('powerupCollected', (powerupId) => {
+        const index = powerups.findIndex(p => p.id === powerupId);
+        if (index !== -1) {
+            powerups.splice(index, 1);
+        }
     });
     
     socket.on('currentPlayers', (serverPlayers) => {
@@ -527,6 +569,8 @@
                 }
                 kills = myPlayer.kills || 0;
                 killsElement.innerText = kills;
+                activePowerup = myPlayer.activePowerup;
+                powerupEndTime = myPlayer.powerupEndTime;
             }
         }
     });
@@ -603,6 +647,8 @@
             players[data.id].title = data.title;
             players[data.id].perks = data.perks;
             if (data.kills !== undefined) players[data.id].kills = data.kills;
+            players[data.id].activePowerup = data.activePowerup;
+            players[data.id].powerupEndTime = data.powerupEndTime;
             updatePlayerSelect();
         }
         if (data.id === myId) {
@@ -636,6 +682,10 @@
             } else if (data.perks) {
                 currentPerks = data.perks;
                 perksElement.innerHTML = formatPerks(data.perks);
+            }
+            if (data.activePowerup !== undefined) {
+                activePowerup = data.activePowerup;
+                powerupEndTime = data.powerupEndTime;
             }
         }
     });
@@ -690,7 +740,6 @@
         }
     });
     
-    // 🚀 NEW FASTER MOVEMENT FUNCTION
     function movePlayer() {
         if (!myPlayer) return;
         
@@ -703,8 +752,6 @@
         } else {
             const move = getMoveVector();
             if (move.x !== 0 || move.y !== 0) {
-                // NEW SPEED FORMULA: Much faster at all sizes
-                // Speed = 8 / (radius/40) - minimum 2.5, maximum 8
                 let rawSpeed = 8 / (myPlayer.radius / 40);
                 let baseSpeed = Math.min(8, Math.max(2.5, rawSpeed));
                 const speedMultiplier = currentPerks?.speedMultiplier || 1;
@@ -718,7 +765,6 @@
         const dy = targetY - myPlayer.y;
         const distance = Math.hypot(dx, dy);
         if (distance > 1) {
-            // NEW SPEED FORMULA
             let rawSpeed = 8 / (myPlayer.radius / 40);
             let baseSpeed = Math.min(8, Math.max(2.5, rawSpeed));
             const speedMultiplier = currentPerks?.speedMultiplier || 1;
@@ -747,6 +793,18 @@
                 currentScore += orb.value;
                 scoreElement.innerText = formatScore(currentScore);
                 if (myPlayer) myPlayer.score = currentScore;
+                break;
+            }
+        }
+        
+        // Power-up collisions
+        for (let i = 0; i < powerups.length; i++) {
+            const powerup = powerups[i];
+            const dist = Math.hypot(myPlayer.x - powerup.x, myPlayer.y - powerup.y);
+            if (dist < myPlayer.radius + powerup.radius) {
+                socket.emit('collectPowerup', powerup.id);
+                powerups.splice(i, 1);
+                addChatMessage('System', `⚡ You got a ${powerup.name}!`, false, true);
                 break;
             }
         }
@@ -818,6 +876,29 @@
             ctx.stroke();
         }
         
+        // Draw power-ups
+        for (const powerup of powerups) {
+            const screenX = (powerup.x - cameraX) * zoom;
+            const screenY = (powerup.y - cameraY) * zoom;
+            const radius = powerup.radius * zoom;
+            if (screenX + radius > 0 && screenX - radius < canvas.width &&
+                screenY + radius > 0 && screenY - radius < canvas.height) {
+                ctx.beginPath();
+                ctx.arc(screenX, screenY, radius, 0, Math.PI * 2);
+                ctx.fillStyle = powerup.color;
+                ctx.fill();
+                ctx.fillStyle = 'white';
+                ctx.font = `${14 * zoom}px Arial`;
+                ctx.fillText(powerup.icon, screenX - 6, screenY + 5);
+                // Add glow
+                ctx.shadowBlur = 8 * zoom;
+                ctx.shadowColor = powerup.color;
+                ctx.fill();
+                ctx.shadowBlur = 0;
+            }
+        }
+        
+        // Draw orbs
         for (const orb of orbs) {
             const screenX = (orb.x - cameraX) * zoom;
             const screenY = (orb.y - cameraY) * zoom;
@@ -837,6 +918,7 @@
             }
         }
         
+        // Draw players
         for (const id in players) {
             if (id === myId) continue;
             const p = players[id];
@@ -873,11 +955,23 @@
             }
         }
         
+        // Draw my player
         const myScreenX = (myPlayer.x - cameraX) * zoom;
         const myScreenY = (myPlayer.y - cameraY) * zoom;
         const myRadius = myPlayer.radius * zoom;
         ctx.beginPath();
         ctx.arc(myScreenX, myScreenY, myRadius, 0, Math.PI * 2);
+        
+        // Shield effect
+        if (activePowerup === 'shield' && powerupEndTime > Date.now()) {
+            ctx.fillStyle = '#ffd700';
+            ctx.fill();
+            ctx.beginPath();
+            ctx.arc(myScreenX, myScreenY, myRadius + 5 * zoom, 0, Math.PI * 2);
+            ctx.strokeStyle = '#ffd700';
+            ctx.lineWidth = 3 * zoom;
+            ctx.stroke();
+        }
         
         const myColor = getCellColor(currentLevel);
         if (myColor === 'rainbow' || myColor === 'rainbow_fast') {
@@ -933,6 +1027,7 @@
             ctx.stroke();
         }
         
+        // Danger warning
         for (const id in players) {
             if (id === myId) continue;
             const p = players[id];
