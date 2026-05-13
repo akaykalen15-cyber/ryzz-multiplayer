@@ -47,7 +47,6 @@ function getRandomOrbType() {
     return orbTypes[0];
 }
 
-// Generate MORE orbs
 function generateOrbs(count) {
     for (let i = 0; i < count; i++) {
         const orbType = getRandomOrbType();
@@ -164,7 +163,7 @@ function moveBots() {
             if (dist < bot.radius + orb.radius) {
                 orbs.splice(i, 1);
                 bot.score += orb.value;
-                bot.radius = Math.min(80, 15 + Math.floor(bot.score / 100));
+                bot.radius = 15 + Math.floor(bot.score / 100);
                 i--;
             }
         }
@@ -186,9 +185,9 @@ function checkBotPlayerCollisions() {
                 if (bot.radius > player.radius && !player.isAdmin && !playerHasShield) {
                     const pointsGained = Math.floor(player.score / 2) + 50;
                     bot.score += pointsGained;
-                    bot.radius = Math.min(80, 15 + Math.floor(bot.score / 100));
+                    bot.radius = 15 + Math.floor(bot.score / 100);
                     player.score = Math.floor(player.score / 3);
-                    player.radius = Math.max(20, 20 + Math.floor(player.score / 50));
+                    player.radius = 20 + Math.floor(player.score / 50);
                     player.x = Math.random() * MAP_WIDTH;
                     player.y = Math.random() * MAP_HEIGHT;
                     io.emit('playerMoved', player);
@@ -197,7 +196,7 @@ function checkBotPlayerCollisions() {
                 } else if (player.radius > bot.radius && !botHasShield) {
                     const pointsGained = Math.floor(bot.score / 2) + 50;
                     player.score += pointsGained;
-                    player.radius = Math.min(80, 20 + Math.floor(player.score / 50));
+                    player.radius = 20 + Math.floor(player.score / 50);
                     delete bots[botId];
                     generateBot();
                     io.emit('chatMessage', { username: 'System', message: `🍽️ ${player.username} ate bot ${bot.username}!`, isSystem: true });
@@ -209,50 +208,27 @@ function checkBotPlayerCollisions() {
     }
 }
 
-// START WITH MORE ORBS
 generateOrbs(200);
+for (let i = 0; i < 6; i++) generateBot();
+for (let i = 0; i < 4; i++) generatePowerup();
 
-// START WITH 6 BOTS
-for (let i = 0; i < 6; i++) {
-    generateBot();
-}
-
-// START WITH 4 POWERUPS
-for (let i = 0; i < 4; i++) {
-    generatePowerup();
-}
-
-// FASTER BOT MOVEMENT UPDATE
 setInterval(() => {
     moveBots();
     checkBotPlayerCollisions();
     io.emit('updateBots', bots);
-}, 50);  // 50ms = faster bot movement
+}, 50);
 
-// FASTER ORB RESPAWN
 setInterval(() => {
-    if (orbs.length < 150) {
-        generateOrbs(40);
-        console.log(`Low on orbs (${orbs.length}), generated 40 more`);
-    } else {
-        generateOrbs(15);
-    }
-}, 1000);  // Every 1 second instead of 2
+    if (orbs.length < 150) generateOrbs(40);
+    else generateOrbs(15);
+}, 1000);
 
-// POWER-UP RESPAWN
 setInterval(() => {
-    if (powerups.length < 5) {
-        generatePowerup();
-    }
-}, 10000);  // Every 10 seconds
+    if (powerups.length < 5) generatePowerup();
+}, 10000);
 
-// BOT RESPAWN
 setInterval(() => {
-    const botCount = Object.keys(bots).length;
-    if (botCount < 4) {
-        generateBot();
-        console.log(`Low bots (${botCount}), spawned new one`);
-    }
+    if (Object.keys(bots).length < 4) generateBot();
 }, 8000);
 
 io.on('connection', (socket) => {
@@ -261,7 +237,6 @@ io.on('connection', (socket) => {
     socket.on('joinGame', (data) => {
         const username = data.username;
         const password = data.password || '';
-        
         let isAdmin = (username === ADMIN_NAME && password === ADMIN_PASSWORD);
         
         if (username === ADMIN_NAME && !isAdmin) {
@@ -271,14 +246,10 @@ io.on('connection', (socket) => {
         
         let nameTaken = false;
         for (let id in players) {
-            if (players[id].username === username) {
-                nameTaken = true;
-                break;
-            }
+            if (players[id].username === username) { nameTaken = true; break; }
         }
-        
         if (nameTaken) {
-            socket.emit('nameRejected', 'Username already taken! Choose another.');
+            socket.emit('nameRejected', 'Username already taken!');
             return;
         }
         
@@ -302,12 +273,7 @@ io.on('connection', (socket) => {
         socket.emit('currentBots', bots);
         socket.broadcast.emit('newPlayer', players[socket.id]);
         updateLeaderboard();
-        
-        if (isAdmin) {
-            socket.emit('adminConfirm', '👑 You are ADMIN! Type /help for commands');
-        }
-        
-        console.log(`${username} joined, orbs: ${orbs.length}, bots: ${Object.keys(bots).length}`);
+        if (isAdmin) socket.emit('adminConfirm', '👑 You are ADMIN!');
     });
 
     socket.on('playerMovement', (data) => {
@@ -320,87 +286,59 @@ io.on('connection', (socket) => {
 
     socket.on('collectOrb', (orbId) => {
         if (!players[socket.id]) return;
-        
         const orbIndex = orbs.findIndex(o => o.id === orbId);
         if (orbIndex !== -1) {
             const orb = orbs[orbIndex];
-            const points = orb.value;
             orbs.splice(orbIndex, 1);
-            
-            players[socket.id].score += points;
-            players[socket.id].radius = Math.min(80, 20 + Math.floor(players[socket.id].score / 50));
-            
+            players[socket.id].score += orb.value;
+            players[socket.id].radius = 20 + Math.floor(players[socket.id].score / 50);
             updateLeaderboard();
-            io.emit('scoreUpdate', {
-                id: socket.id,
-                score: players[socket.id].score,
-                radius: players[socket.id].radius
-            });
+            io.emit('scoreUpdate', { id: socket.id, score: players[socket.id].score, radius: players[socket.id].radius });
             io.emit('orbCollected', orbId);
         }
     });
 
     socket.on('collectPowerup', (powerupId) => {
         if (!players[socket.id]) return;
-        
         const powerupIndex = powerups.findIndex(p => p.id === powerupId);
         if (powerupIndex !== -1) {
             const powerup = powerups[powerupIndex];
             powerups.splice(powerupIndex, 1);
-            
             const player = players[socket.id];
             player.activePowerup = powerup.type;
             player.powerupEndTime = Date.now() + powerup.duration;
             
             if (powerup.type === 'speed') {
                 player.speedMultiplier = 2;
-                setTimeout(() => {
-                    if (players[socket.id]) {
-                        players[socket.id].speedMultiplier = 1;
-                        players[socket.id].activePowerup = null;
-                    }
-                }, powerup.duration);
+                setTimeout(() => { if (players[socket.id]) players[socket.id].speedMultiplier = 1; }, powerup.duration);
             } else if (powerup.type === 'split') {
                 player.score += 50;
-                player.radius = Math.min(80, player.radius + 5);
+                player.radius = 20 + Math.floor(player.score / 50);
                 updateLeaderboard();
                 io.emit('scoreUpdate', { id: socket.id, score: player.score, radius: player.radius });
             } else {
-                setTimeout(() => {
-                    if (players[socket.id]) {
-                        players[socket.id].activePowerup = null;
-                    }
-                }, powerup.duration);
+                setTimeout(() => { if (players[socket.id]) players[socket.id].activePowerup = null; }, powerup.duration);
             }
-            
             io.emit('powerupCollected', powerupId);
-            io.emit('chatMessage', {
-                username: 'System',
-                message: `⚡ ${player.username} got ${powerup.name}!`,
-                isSystem: true
-            });
+            io.emit('chatMessage', { username: 'System', message: `⚡ ${player.username} got ${powerup.name}!`, isSystem: true });
             updateLeaderboard();
         }
     });
 
     socket.on('eatPlayer', (targetId) => {
         if (!players[socket.id] || !players[targetId]) return;
-        
         const eater = players[socket.id];
         const target = players[targetId];
-        
         const targetHasShield = target.activePowerup === 'shield' && Date.now() < target.powerupEndTime;
         
         if (eater.radius > target.radius && !target.isAdmin && !targetHasShield) {
             const pointsGained = Math.floor(target.score / 2) + 50;
             eater.score += pointsGained;
-            eater.radius = Math.min(80, 20 + Math.floor(eater.score / 50));
-            
+            eater.radius = 20 + Math.floor(eater.score / 50);
             target.score = Math.floor(target.score / 3);
-            target.radius = Math.max(20, 20 + Math.floor(target.score / 50));
+            target.radius = 20 + Math.floor(target.score / 50);
             target.x = Math.random() * MAP_WIDTH;
             target.y = Math.random() * MAP_HEIGHT;
-            
             updateLeaderboard();
             io.emit('scoreUpdate', { id: socket.id, score: eater.score, radius: eater.radius });
             io.emit('scoreUpdate', { id: targetId, score: target.score, radius: target.radius });
@@ -411,18 +349,11 @@ io.on('connection', (socket) => {
 
     socket.on('chatMessage', (data) => {
         if (!players[socket.id]) return;
-        
         const sender = players[socket.id];
-        
         if (data.message.startsWith('/') && sender.isAdmin) {
             processAdminCommand(socket, data.message);
         } else {
-            io.emit('chatMessage', {
-                username: sender.username,
-                message: data.message,
-                isAdmin: sender.isAdmin,
-                isSystem: false
-            });
+            io.emit('chatMessage', { username: sender.username, message: data.message, isAdmin: sender.isAdmin, isSystem: false });
         }
     });
 
@@ -437,20 +368,8 @@ io.on('connection', (socket) => {
 
 function updateLeaderboard() {
     let list = [];
-    for (let id in players) {
-        list.push({
-            username: players[id].username,
-            score: players[id].score,
-            isAdmin: players[id].isAdmin
-        });
-    }
-    for (let id in bots) {
-        list.push({
-            username: '🤖 ' + bots[id].username,
-            score: bots[id].score,
-            isAdmin: false
-        });
-    }
+    for (let id in players) list.push({ username: players[id].username, score: players[id].score, isAdmin: players[id].isAdmin });
+    for (let id in bots) list.push({ username: '🤖 ' + bots[id].username, score: bots[id].score, isAdmin: false });
     list.sort((a, b) => b.score - a.score);
     io.emit('leaderboardUpdate', list.slice(0, 10));
 }
@@ -458,22 +377,17 @@ function updateLeaderboard() {
 function processAdminCommand(socket, command) {
     const parts = command.trim().split(' ');
     const cmd = parts[0].toLowerCase();
-    const adminName = players[socket.id].username;
     
     switch(cmd) {
         case '/help':
             socket.emit('chatMessage', { username: 'System', message: 'Commands: /kick, /clear, /god, /list, /orbs, /bots, /powerups', isSystem: true });
             break;
         case '/kick':
-            if (parts.length < 2) {
-                socket.emit('chatMessage', { username: 'System', message: 'Usage: /kick [username]', isSystem: true });
-                return;
-            }
+            if (parts.length < 2) return;
             const targetName = parts.slice(1).join(' ');
             for (let id in players) {
                 if (players[id].username === targetName && !players[id].isAdmin) {
-                    io.to(id).emit('kicked', `Kicked by admin ${adminName}`);
-                    io.sockets.sockets.get(id)?.disconnect();
+                    io.to(id).emit('kicked', 'Kicked by admin');
                     delete players[id];
                     io.emit('chatMessage', { username: 'System', message: `${targetName} was kicked`, isSystem: true });
                     updateLeaderboard();
@@ -482,13 +396,7 @@ function processAdminCommand(socket, command) {
             }
             break;
         case '/clear':
-            for (let id in players) {
-                if (!players[id].isAdmin) {
-                    io.to(id).emit('kicked', 'Server cleared by admin');
-                    io.sockets.sockets.get(id)?.disconnect();
-                    delete players[id];
-                }
-            }
+            for (let id in players) if (!players[id].isAdmin) delete players[id];
             io.emit('chatMessage', { username: 'System', message: 'All non-admin players cleared', isSystem: true });
             updateLeaderboard();
             break;
@@ -498,9 +406,7 @@ function processAdminCommand(socket, command) {
             break;
         case '/list':
             let list = [];
-            for (let id in players) {
-                list.push(`${players[id].username}${players[id].isAdmin ? '👑' : ''} (${players[id].score})`);
-            }
+            for (let id in players) list.push(`${players[id].username}${players[id].isAdmin ? '👑' : ''} (${players[id].score})`);
             socket.emit('chatMessage', { username: 'System', message: `Online: ${list.join(', ')}`, isSystem: true });
             break;
         case '/orbs':
@@ -513,12 +419,11 @@ function processAdminCommand(socket, command) {
             socket.emit('chatMessage', { username: 'System', message: `${powerups.length} power-ups on map`, isSystem: true });
             break;
         default:
-            socket.emit('chatMessage', { username: 'System', message: `Unknown command: ${cmd}. Type /help`, isSystem: true });
+            socket.emit('chatMessage', { username: 'System', message: 'Unknown command. Type /help', isSystem: true });
     }
 }
 
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, '0.0.0.0', () => {
     console.log(`✅ RYZZ.io server running on port ${PORT}`);
-    console.log(`⚡ Power-ups enabled | 🚀 Fast mode enabled`);
 });
