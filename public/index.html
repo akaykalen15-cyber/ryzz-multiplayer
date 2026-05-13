@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>RYZZ.io - Multiplayer Arena</title>
+    <title>RYZZ.io - Kills & Personal Best</title>
     <style>
         * {
             margin: 0;
@@ -213,6 +213,8 @@
         
         <div id="ui">
             <div class="stats">🎯 Score: <span id="scoreValue">0</span></div>
+            <div class="stats">🏆 Best: <span id="bestValue">0</span></div>
+            <div class="stats">⚔️ Kills: <span id="killsValue">0</span></div>
             <div class="stats">📏 Size: <span id="sizeValue">20</span>
                 <div id="sizeBarContainer"><div id="sizeBar"></div></div>
             </div>
@@ -265,6 +267,8 @@
     let currentLevel = 1;
     let currentTitle = '';
     let currentPerks = { speedMultiplier: 1, sizeMultiplier: 1, scoreMultiplier: 1, eatRangeMultiplier: 1 };
+    let kills = 0;
+    let personalBest = localStorage.getItem('ryzzPersonalBest') || 0;
     
     let cameraX = 0, cameraY = 0;
     let moveDirection = { x: 0, y: 0 };
@@ -280,6 +284,7 @@
     
     let collectingOrbIds = new Set();
     let lastLevel = 1;
+    let lastDeathMessage = '';
     
     const joinScreen = document.getElementById('joinScreen');
     const gameScreen = document.getElementById('gameScreen');
@@ -288,6 +293,8 @@
     const joinBtn = document.getElementById('joinBtn');
     const errorMsg = document.getElementById('errorMsg');
     const scoreElement = document.getElementById('scoreValue');
+    const bestElement = document.getElementById('bestValue');
+    const killsElement = document.getElementById('killsValue');
     const sizeElement = document.getElementById('sizeValue');
     const sizeBar = document.getElementById('sizeBar');
     const levelElement = document.getElementById('levelValue');
@@ -299,6 +306,9 @@
     const chatSend = document.getElementById('chatSend');
     const adminNameSpan = document.getElementById('adminName');
     const zoomLevelSpan = document.getElementById('zoomLevel');
+    
+    // Update personal best display
+    bestElement.innerText = formatScore(personalBest);
     
     function formatScore(score) {
         if (score >= 1_000_000_000) return (score / 1_000_000_000).toFixed(1) + 'B';
@@ -481,6 +491,9 @@
                 if (myPlayer.isAdmin) {
                     addChatMessage('System', 'You are ADMIN! Type /help', false, true);
                 }
+                // Load kills from server or local
+                kills = myPlayer.kills || 0;
+                killsElement.innerText = kills;
             }
         }
     });
@@ -548,11 +561,23 @@
             players[data.id].level = data.level;
             players[data.id].title = data.title;
             players[data.id].perks = data.perks;
+            if (data.kills !== undefined) players[data.id].kills = data.kills;
         }
         if (data.id === myId) {
             if (data.score > currentScore) {
                 currentScore = data.score;
                 scoreElement.innerText = formatScore(currentScore);
+                // Update personal best
+                if (currentScore > personalBest) {
+                    personalBest = currentScore;
+                    localStorage.setItem('ryzzPersonalBest', personalBest);
+                    bestElement.innerText = formatScore(personalBest);
+                    addChatMessage('System', `🏆 NEW PERSONAL BEST! ${formatScore(personalBest)}`, false, true);
+                }
+            }
+            if (data.kills !== undefined) {
+                kills = data.kills;
+                killsElement.innerText = kills;
             }
             if (myPlayer) {
                 myPlayer.radius = data.radius;
@@ -606,6 +631,13 @@
     socket.on('kicked', (msg) => {
         alert(msg);
         window.location.reload();
+    });
+    
+    // Death message handler
+    socket.on('deathMessage', (data) => {
+        if (data.victimId === myId) {
+            addChatMessage('System', `💀 You were eaten by ${data.killerName}!`, false, true);
+        }
     });
     
     function movePlayer() {
@@ -671,11 +703,12 @@
             const dist = Math.hypot(myPlayer.x - other.x, myPlayer.y - other.y);
             if (dist < myPlayer.radius + other.radius) {
                 if (myPlayer.radius > other.radius && !other.isAdmin) {
+                    kills++;
+                    killsElement.innerText = kills;
                     socket.emit('eatPlayer', id);
-                    addChatMessage('System', `🍽️ You ate ${other.username}!`, false, true);
+                    addChatMessage('System', `🍽️ You ate ${other.username}! (${kills} kills)`, false, true);
                 } else if (other.radius > myPlayer.radius) {
                     socket.emit('eatPlayer', myId);
-                    addChatMessage('System', `💀 You were eaten by ${other.username}!`, false, true);
                     myPlayer.x = Math.random() * (MAP_WIDTH - 400) + 200;
                     myPlayer.y = Math.random() * (MAP_HEIGHT - 400) + 200;
                     socket.emit('playerMovement', { x: myPlayer.x, y: myPlayer.y });
