@@ -34,7 +34,7 @@ const orbValues = [100, 200, 350, 500];
 
 const botNames = ['Alpha', 'Beta', 'Gamma', 'Delta', 'Echo', 'Zeta', 'Theta', 'Sigma', 'Omega', 'Nova', 'Rex', 'Luna', 'Orion', 'Atlas'];
 
-// 🎯 LEVEL SYSTEM
+// 🎯 LEVEL SYSTEM WITH PERKS
 function getLevel(score) {
     if (score < 1000) return 1;
     if (score < 2500) return 2;
@@ -65,11 +65,54 @@ function getLevelTitle(level) {
     return '👑 Supreme';
 }
 
-function getLevelBonus(level) {
+// 🎯 PERK CALCULATIONS
+function getPerks(level) {
+    let speedBonus = 0;
+    let sizeBonus = 0;
+    let scoreBonus = 0;
+    let eatRangeBonus = 0;
+    
+    if (level >= 2) speedBonus += 5;
+    if (level >= 3) sizeBonus += 10;
+    if (level >= 4) eatRangeBonus += 10;
+    if (level >= 5) speedBonus += 15;
+    if (level >= 6) sizeBonus += 20;
+    if (level >= 7) scoreBonus += 25;
+    if (level >= 8) speedBonus += 30;
+    if (level >= 9) scoreBonus += 10; // Life steal effect
+    if (level >= 10) {
+        sizeBonus += 50;
+        scoreBonus += 50;
+    }
+    if (level >= 11 && level < 15) {
+        const extra = (level - 10) * 2;
+        speedBonus += extra;
+        sizeBonus += extra;
+    }
+    if (level >= 15) {
+        speedBonus += 100;
+        sizeBonus += 100;
+        scoreBonus += 100;
+        eatRangeBonus += 50;
+    }
+    if (level >= 16 && level < 20) {
+        const extra = (level - 15) * 5;
+        speedBonus += extra;
+        sizeBonus += extra;
+        scoreBonus += extra;
+    }
+    if (level >= 20) {
+        speedBonus += 200;
+        sizeBonus += 200;
+        scoreBonus += 200;
+        eatRangeBonus += 100;
+    }
+    
     return {
-        speedBonus: Math.min(50, Math.floor(level * 2)),
-        sizeBonus: Math.min(50, Math.floor(level * 2)),
-        eatBonus: Math.min(30, Math.floor(level * 1.5))
+        speedMultiplier: 1 + (speedBonus / 100),
+        sizeMultiplier: 1 + (sizeBonus / 100),
+        scoreMultiplier: 1 + (scoreBonus / 100),
+        eatRangeMultiplier: 1 + (eatRangeBonus / 100)
     };
 }
 
@@ -82,11 +125,11 @@ function formatScore(score) {
 
 function getCellColor(level) {
     if (level >= 20) return 'rainbow';
-    if (level >= 15) return '#a855f7'; // Purple
-    if (level >= 10) return '#f97316'; // Orange
-    if (level >= 7) return '#fbbf24'; // Gold
-    if (level >= 4) return '#60a5fa'; // Light blue
-    return '#3b82f6'; // Blue
+    if (level >= 15) return '#a855f7';
+    if (level >= 10) return '#f97316';
+    if (level >= 7) return '#fbbf24';
+    if (level >= 4) return '#60a5fa';
+    return '#3b82f6';
 }
 
 function updateMapSize() {
@@ -123,7 +166,6 @@ function generateOrbs(count) {
             color: orbColors[idx]
         });
     }
-    console.log(`Total orbs: ${orbs.length}`);
 }
 
 function generateBot() {
@@ -140,6 +182,7 @@ function generateBot() {
         score: startScore,
         level: level,
         title: getLevelTitle(level),
+        perks: getPerks(level),
         isBot: true
     };
 }
@@ -169,6 +212,7 @@ setInterval(() => {
     }
 }, 10000);
 
+// Bot AI movement with perks
 setInterval(() => {
     for (const id in bots) {
         const bot = bots[id];
@@ -199,6 +243,7 @@ setInterval(() => {
         }
         
         let moveX = 0, moveY = 0;
+        const botSpeed = 5 * (bot.perks?.speedMultiplier || 1);
         
         if (nearestPlayer && playerDist < 122500) {
             const dist = Math.sqrt(playerDist);
@@ -207,16 +252,16 @@ setInterval(() => {
                 const dy = nearestPlayer.y - bot.y;
                 const len = dist;
                 if (len > 0) {
-                    moveX = (dx / len) * 6;
-                    moveY = (dy / len) * 6;
+                    moveX = (dx / len) * botSpeed;
+                    moveY = (dy / len) * botSpeed;
                 }
             } else if (nearestPlayer.radius > bot.radius + 10) {
                 const dx = bot.x - nearestPlayer.x;
                 const dy = bot.y - nearestPlayer.y;
                 const len = dist;
                 if (len > 0) {
-                    moveX = (dx / len) * 7.5;
-                    moveY = (dy / len) * 7.5;
+                    moveX = (dx / len) * (botSpeed * 1.2);
+                    moveY = (dy / len) * (botSpeed * 1.2);
                 }
             }
         }
@@ -226,8 +271,8 @@ setInterval(() => {
             const dy = nearestOrb.y - bot.y;
             const len = Math.hypot(dx, dy);
             if (len > 0) {
-                moveX = (dx / len) * 5;
-                moveY = (dy / len) * 5;
+                moveX = (dx / len) * 4;
+                moveY = (dy / len) * 4;
             }
         }
         
@@ -243,8 +288,10 @@ setInterval(() => {
             const orb = orbs[i];
             const dx = bot.x - orb.x;
             const dy = bot.y - orb.y;
-            if (dx * dx + dy * dy < (bot.radius + orb.radius) ** 2) {
-                bot.score += orb.value;
+            const eatRange = 8 * (bot.perks?.eatRangeMultiplier || 1);
+            if (dx * dx + dy * dy < (bot.radius + eatRange) ** 2) {
+                const points = Math.floor(orb.value * (bot.perks?.scoreMultiplier || 1));
+                bot.score += points;
                 bot.radius = Math.min(100, 18 + Math.floor(bot.score / 500));
                 orbs.splice(i, 1);
                 i--;
@@ -255,11 +302,13 @@ setInterval(() => {
         if (newLevel !== bot.level) {
             bot.level = newLevel;
             bot.title = getLevelTitle(newLevel);
+            bot.perks = getPerks(newLevel);
         }
     }
     io.emit('updateBots', bots);
 }, 40);
 
+// Bot vs player collisions
 setInterval(() => {
     for (const botId in bots) {
         const bot = bots[botId];
@@ -267,12 +316,12 @@ setInterval(() => {
             const player = players[playerId];
             const dx = bot.x - player.x;
             const dy = bot.y - player.y;
+            const eatRange = (bot.radius + player.radius) * (bot.perks?.eatRangeMultiplier || 1);
             const distSq = dx * dx + dy * dy;
-            const radiusSum = bot.radius + player.radius;
             
-            if (distSq < radiusSum * radiusSum) {
+            if (distSq < eatRange ** 2) {
                 if (bot.radius > player.radius && !player.isAdmin) {
-                    const gain = Math.floor(player.score / 3) + 200;
+                    const gain = Math.floor((player.score / 3) + 200) * (bot.perks?.scoreMultiplier || 1);
                     bot.score += gain;
                     bot.radius = Math.min(100, 18 + Math.floor(bot.score / 500));
                     player.score = Math.max(0, Math.floor(player.score / 2) - 100);
@@ -280,23 +329,25 @@ setInterval(() => {
                     player.x = Math.random() * MAP_WIDTH;
                     player.y = Math.random() * MAP_HEIGHT;
                     
-                    const newLevel = getLevel(player.score);
-                    player.level = newLevel;
-                    player.title = getLevelTitle(newLevel);
+                    const newPlayerLevel = getLevel(player.score);
+                    player.level = newPlayerLevel;
+                    player.title = getLevelTitle(newPlayerLevel);
+                    player.perks = getPerks(newPlayerLevel);
                     
                     io.emit('playerMoved', player);
-                    io.emit('chatMessage', { username: 'System', message: `🤖 ${bot.username} ate ${player.username}!`, isSystem: true });
+                    io.emit('chatMessage', { username: 'System', message: `🤖 ${bot.username} (Lvl ${bot.level}) ate ${player.username}!`, isSystem: true });
                     updateLeaderboard();
                 } else if (player.radius > bot.radius) {
-                    const gain = Math.floor(bot.score / 2) + 200;
+                    const gain = Math.floor((bot.score / 2) + 200) * (player.perks?.scoreMultiplier || 1);
                     player.score += gain;
                     player.radius = Math.min(120, 20 + Math.floor(player.score / 500));
                     
-                    const newLevel = getLevel(player.score);
-                    player.level = newLevel;
-                    player.title = getLevelTitle(newLevel);
+                    const newPlayerLevel = getLevel(player.score);
+                    player.level = newPlayerLevel;
+                    player.title = getLevelTitle(newPlayerLevel);
+                    player.perks = getPerks(newPlayerLevel);
                     
-                    io.emit('chatMessage', { username: 'System', message: `🍽️ ${player.username} ate ${bot.username}! +${gain}`, isSystem: true });
+                    io.emit('chatMessage', { username: 'System', message: `🍽️ ${player.username} ate ${bot.username}! +${formatScore(gain)}`, isSystem: true });
                     delete bots[botId];
                     generateBot();
                     updateLeaderboard();
@@ -334,6 +385,7 @@ io.on('connection', (socket) => {
             score: startScore,
             level: level,
             title: getLevelTitle(level),
+            perks: getPerks(level),
             isAdmin: isAdmin
         };
         
@@ -366,14 +418,16 @@ io.on('connection', (socket) => {
                 const orb = orbs[i];
                 orbs.splice(i, 1);
                 
-                player.score += orb.value;
+                const points = Math.floor(orb.value * (player.perks?.scoreMultiplier || 1));
+                player.score += points;
                 player.radius = Math.min(120, 20 + Math.floor(player.score / 500));
                 
                 const newLevel = getLevel(player.score);
                 if (newLevel !== player.level) {
                     player.level = newLevel;
                     player.title = getLevelTitle(newLevel);
-                    io.emit('chatMessage', { username: 'System', message: `🎉 ${player.username} reached ${player.title} (Level ${player.level})!`, isSystem: true });
+                    player.perks = getPerks(newLevel);
+                    io.emit('chatMessage', { username: 'System', message: `🎉 ${player.username} reached ${player.title} (Level ${player.level})! +${player.perks.speedMultiplier > 1 ? ' Perks unlocked!' : ''}`, isSystem: true });
                 }
                 
                 updateLeaderboard();
@@ -382,7 +436,8 @@ io.on('connection', (socket) => {
                     score: player.score,
                     radius: player.radius,
                     level: player.level,
-                    title: player.title
+                    title: player.title,
+                    perks: player.perks
                 });
                 io.emit('orbCollected', orbId);
                 return;
@@ -397,7 +452,7 @@ io.on('connection', (socket) => {
         if (!eater || !target) return;
         
         if (eater.radius > target.radius && !target.isAdmin) {
-            const gain = Math.floor(target.score / 2) + 200;
+            const gain = Math.floor((target.score / 2) + 200) * (eater.perks?.scoreMultiplier || 1);
             eater.score += gain;
             eater.radius = Math.min(120, 20 + Math.floor(eater.score / 500));
             
@@ -405,6 +460,7 @@ io.on('connection', (socket) => {
             if (newEaterLevel !== eater.level) {
                 eater.level = newEaterLevel;
                 eater.title = getLevelTitle(newEaterLevel);
+                eater.perks = getPerks(newEaterLevel);
                 io.emit('chatMessage', { username: 'System', message: `🎉 ${eater.username} reached ${eater.title} (Level ${eater.level})!`, isSystem: true });
             }
             
@@ -417,13 +473,14 @@ io.on('connection', (socket) => {
             if (newTargetLevel !== target.level) {
                 target.level = newTargetLevel;
                 target.title = getLevelTitle(newTargetLevel);
+                target.perks = getPerks(newTargetLevel);
             }
             
             updateLeaderboard();
-            io.emit('scoreUpdate', { id: socket.id, score: eater.score, radius: eater.radius, level: eater.level, title: eater.title });
-            io.emit('scoreUpdate', { id: targetId, score: target.score, radius: target.radius, level: target.level, title: target.title });
+            io.emit('scoreUpdate', { id: socket.id, score: eater.score, radius: eater.radius, level: eater.level, title: eater.title, perks: eater.perks });
+            io.emit('scoreUpdate', { id: targetId, score: target.score, radius: target.radius, level: target.level, title: target.title, perks: target.perks });
             io.emit('playerMoved', target);
-            io.emit('chatMessage', { username: 'System', message: `🍽️ ${eater.username} ate ${target.username}! +${formatScore(gain)}`, isSystem: true });
+            io.emit('chatMessage', { username: 'System', message: `🍽️ ${eater.username} (Lvl ${eater.level}) ate ${target.username}! +${formatScore(gain)}`, isSystem: true });
         }
     });
     
@@ -437,7 +494,7 @@ io.on('connection', (socket) => {
             
             switch(cmd) {
                 case '/help':
-                    socket.emit('chatMessage', { username: 'System', message: 'Commands: /kick, /clear, /list, /orbs, /bots, /map', isSystem: true });
+                    socket.emit('chatMessage', { username: 'System', message: 'Commands: /kick, /clear, /list, /orbs, /bots, /map, /perks', isSystem: true });
                     break;
                 case '/kick':
                     if (parts.length < 2) return;
@@ -468,6 +525,10 @@ io.on('connection', (socket) => {
                         list.push(`${players[id].username}${players[id].isAdmin ? '👑' : ''} (Lvl ${players[id].level} - ${formatScore(players[id].score)})`);
                     }
                     socket.emit('chatMessage', { username: 'System', message: `Online: ${list.join(', ')}`, isSystem: true });
+                    break;
+                case '/perks':
+                    const perks = player.perks;
+                    socket.emit('chatMessage', { username: 'System', message: `Your perks: ⚡${(perks.speedMultiplier*100).toFixed(0)}% Speed | 💪${(perks.sizeMultiplier*100).toFixed(0)}% Size | 💰${(perks.scoreMultiplier*100).toFixed(0)}% Score | 🎯${(perks.eatRangeMultiplier*100).toFixed(0)}% Range`, isSystem: true });
                     break;
                 case '/orbs':
                     socket.emit('chatMessage', { username: 'System', message: `${orbs.length} orbs on map`, isSystem: true });
@@ -527,10 +588,10 @@ function updateLeaderboard() {
 
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, '0.0.0.0', () => {
-    console.log(`\n✅ RYZZ.io LEVEL SYSTEM server running!`);
+    console.log(`\n✅ RYZZ.io PERK SYSTEM server running!`);
     console.log(`💎 Orb values: 100, 200, 350, 500`);
-    console.log(`🎯 Level system enabled (1-20+)`);
-    console.log(`📊 Score prefixes: K, M, B`);
+    console.log(`🎯 Level perks enabled!`);
+    console.log(`📊 Commands: /perks to see your bonuses`);
     console.log(`🗺️ Map: ${MAP_WIDTH}x${MAP_HEIGHT}`);
     console.log(`🤖 Bots: ${Object.keys(bots).length}\n`);
 });
