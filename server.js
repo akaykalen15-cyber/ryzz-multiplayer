@@ -64,9 +64,7 @@ function saveTop10() {
     console.log(`🏆 Saved all-time leaderboard (${allTimeTop10.length} records)`);
 }
 
-// 🔧 FIXED: Update all-time leaderboard with any new high score
 function updateAllTimeLeaderboard(username, score) {
-    // Check if this score would make it into top 10
     let wouldBeInTop10 = false;
     if (allTimeTop10.length < 10) {
         wouldBeInTop10 = true;
@@ -77,20 +75,19 @@ function updateAllTimeLeaderboard(username, score) {
         }
     }
     
-    if (!wouldBeInTop10) return;
+    if (!wouldBeInTop10 && allTimeTop10.some(entry => entry.username === username && entry.score >= score)) {
+        return;
+    }
     
-    // Check if player already has a record
     const existingIndex = allTimeTop10.findIndex(entry => entry.username === username);
     
     if (existingIndex !== -1) {
-        // Update if score is higher
         if (score > allTimeTop10[existingIndex].score) {
             allTimeTop10[existingIndex].score = score;
             allTimeTop10[existingIndex].date = new Date().toISOString();
             console.log(`🏆 ${username} improved record to ${formatScore(score)}`);
         }
     } else {
-        // Add new record
         allTimeTop10.push({
             username: username,
             score: score,
@@ -99,15 +96,15 @@ function updateAllTimeLeaderboard(username, score) {
         console.log(`🏆 ${username} added to all-time leaderboard with ${formatScore(score)}`);
     }
     
-    // Sort and keep top 10
     allTimeTop10.sort((a, b) => b.score - a.score);
     allTimeTop10 = allTimeTop10.slice(0, 10);
-    
-    // Save to file
     saveTop10();
-    
-    // Broadcast to all players
     io.emit('allTimeLeaderboard', allTimeTop10);
+}
+
+function getPersonalBest(username) {
+    const record = allTimeTop10.find(entry => entry.username === username);
+    return record ? record.score : 0;
 }
 
 function getLevel(score) {
@@ -373,7 +370,6 @@ setInterval(() => {
                     player.level = newLevel;
                     player.title = getLevelTitle(newLevel);
                     player.perks = getPerks(newLevel);
-                    // 🔧 Update all-time leaderboard when player eats a bot
                     updateAllTimeLeaderboard(player.username, player.score);
                     delete bots[botId];
                     generateBot();
@@ -404,17 +400,28 @@ io.on('connection', (socket) => {
             return;
         }
         
+        // Check if player is already in game
+        let existingPlayerId = null;
         for (let id in players) {
             if (players[id].username === username) {
-                socket.emit('nameRejected', 'Username already taken!');
-                return;
+                existingPlayerId = id;
+                break;
             }
         }
+        
+        if (existingPlayerId) {
+            const oldSocket = io.sockets.sockets.get(existingPlayerId);
+            if (oldSocket) oldSocket.disconnect();
+            delete players[existingPlayerId];
+        }
+        
+        const personalBest = getPersonalBest(username);
         
         players[socket.id] = {
             id: socket.id, username: username, x: Math.random() * MAP_WIDTH, y: Math.random() * MAP_HEIGHT,
             radius: 20, score: 0, level: 1, title: '🍼 Newbie', perks: getPerks(1),
-            isAdmin: isAdmin, kills: 0, activePowerup: null, powerupEndTime: 0
+            isAdmin: isAdmin, kills: 0, activePowerup: null, powerupEndTime: 0,
+            personalBest: personalBest
         };
         
         socket.emit('currentOrbs', orbs);
@@ -423,9 +430,10 @@ io.on('connection', (socket) => {
         socket.emit('currentBots', bots);
         socket.emit('mapSizeUpdate', { width: MAP_WIDTH, height: MAP_HEIGHT });
         socket.emit('adminConfirm', isAdmin);
+        socket.emit('personalBestUpdate', personalBest);
         socket.broadcast.emit('newPlayer', players[socket.id]);
         updateLeaderboard();
-        console.log(`${username} joined (Admin: ${isAdmin})`);
+        console.log(`${username} joined (Admin: ${isAdmin}) - Personal Best: ${formatScore(personalBest)}`);
     });
 
     socket.on('playerMovement', (data) => {
@@ -457,9 +465,12 @@ io.on('connection', (socket) => {
             io.emit('chatMessage', { username: 'System', message: `🎉 ${player.username} reached ${player.title} (Level ${player.level})!`, isSystem: true });
         }
         
-        // 🔧 Update all-time leaderboard on orb collection (if score increased)
         if (player.score > oldScore) {
             updateAllTimeLeaderboard(player.username, player.score);
+            if (player.score > player.personalBest) {
+                player.personalBest = player.score;
+                socket.emit('personalBestUpdate', player.personalBest);
+            }
         }
         
         updateLeaderboard();
@@ -504,17 +515,45 @@ io.on('connection', (socket) => {
         io.emit('chatMessage', { username: 'System', message: `⚡ ${player.username} got ${powerup.name}!`, isSystem: true });
     });
 
+    // 🔥 EAT PLAYER WITH LEVEL PROTECTION - Low levels CANNOT eat high levels
     socket.on('eatPlayer', (targetId) => {
-        const eater = players[socket.id], target = players[targetId];
+        const eater = players[socket.id];
+        const target = players[targetId];
         if (!eater || !target) return;
         
+        // 🛡️ PROTECTION: Low level players CANNOT eat higher level players
+        if (eater.level < target.level) {
+            io.emit('chatMessage', { username: 'System', message: `🛡️ ${target.username} (Lvl ${target.level}) is too high level for ${eater.username} (Lvl ${eater.level}) to eat!`, isSystem: true });
+            // Bounce apart
+            const angle = Math.atan2(eater.y - target.y, eater.x - target.x);
+            eater.x += Math.cos(angle) * 30;
+            eater.y += Math.sin(angle) * 30;
+            target.x -= Math.cos(angle) * 30;
+            target.y -= Math.sin(angle) * 30;
+            io.emit('playerMoved', eater);
+            io.emit('playerMoved', target);
+            return;
+        }
+        
+        // Calculate effective size with level bonus for higher level players
+        let levelAdvantage = 0;
+        if (eater.level > target.level) {
+            levelAdvantage = (eater.level - target.level) * 0.5; // 0.5% per level advantage
+        }
+        
+        const eaterEffectiveSize = eater.radius * (1 + levelAdvantage / 100);
         const targetHasShield = (target.activePowerup === 'shield' && Date.now() < target.powerupEndTime);
         
-        if (eater.radius > target.radius && !target.isAdmin && !targetHasShield) {
+        // Check if eater can eat target (size advantage OR level advantage)
+        if ((eaterEffectiveSize > target.radius || eater.level > target.level) && !target.isAdmin && !targetHasShield) {
             let multiplier = 1;
             if (eater.activePowerup === 'double' && Date.now() < eater.powerupEndTime) multiplier = 2;
             
-            const gain = Math.floor((target.score / 2) + 100) * multiplier * (eater.perks?.scoreMultiplier || 1);
+            // Bonus points based on level difference
+            const levelDiff = eater.level - target.level;
+            const levelBonusPoints = Math.max(0, levelDiff * 50);
+            
+            const gain = Math.floor((target.score / 2) + 100 + levelBonusPoints) * multiplier * (eater.perks?.scoreMultiplier || 1);
             const oldScore = eater.score;
             eater.score += gain;
             eater.radius = Math.min(200, 20 + Math.floor(eater.score / 50));
@@ -528,9 +567,12 @@ io.on('connection', (socket) => {
                 io.emit('chatMessage', { username: 'System', message: `🎉 ${eater.username} reached ${eater.title} (Level ${eater.level})!`, isSystem: true });
             }
             
-            // 🔧 Update all-time leaderboard when score increases
             if (eater.score > oldScore) {
                 updateAllTimeLeaderboard(eater.username, eater.score);
+                if (eater.score > eater.personalBest) {
+                    eater.personalBest = eater.score;
+                    socket.emit('personalBestUpdate', eater.personalBest);
+                }
             }
             
             target.score = Math.floor(target.score / 5);
@@ -550,9 +592,23 @@ io.on('connection', (socket) => {
             io.emit('scoreUpdate', { id: targetId, score: target.score, radius: target.radius, level: target.level, title: target.title, perks: target.perks, kills: target.kills, activePowerup: target.activePowerup, powerupEndTime: target.powerupEndTime });
             io.emit('playerMoved', target);
             io.emit('deathMessage', { victimId: targetId, killerName: eater.username });
-            io.emit('chatMessage', { username: 'System', message: `🍽️ ${eater.username} ate ${target.username}! +${formatScore(gain)}`, isSystem: true });
+            
+            if (levelDiff > 5) {
+                io.emit('chatMessage', { username: 'System', message: `💀 ${eater.username} (Lvl ${eater.level}) DOMINATED ${target.username} (Lvl ${target.level})! +${formatScore(gain)}`, isSystem: true });
+            } else {
+                io.emit('chatMessage', { username: 'System', message: `🍽️ ${eater.username} (Lvl ${eater.level}) ate ${target.username} (Lvl ${target.level})! +${formatScore(gain)}`, isSystem: true });
+            }
         } else if (targetHasShield) {
             io.emit('chatMessage', { username: 'System', message: `🛡️ ${target.username}'s shield blocked the attack!`, isSystem: true });
+        } else {
+            // Not big enough to eat - bounce
+            const angle = Math.atan2(eater.y - target.y, eater.x - target.x);
+            eater.x += Math.cos(angle) * 20;
+            eater.y += Math.sin(angle) * 20;
+            target.x -= Math.cos(angle) * 20;
+            target.y -= Math.sin(angle) * 20;
+            io.emit('playerMoved', eater);
+            io.emit('playerMoved', target);
         }
     });
 
@@ -569,9 +625,12 @@ io.on('connection', (socket) => {
                 player.title = getLevelTitle(newLevel);
                 player.perks = getPerks(newLevel);
             }
-            // 🔧 Update all-time leaderboard
             if (player.score > oldScore) {
                 updateAllTimeLeaderboard(player.username, player.score);
+                if (player.score > player.personalBest) {
+                    player.personalBest = player.score;
+                    socket.emit('personalBestUpdate', player.personalBest);
+                }
             }
             updateLeaderboard();
             io.emit('scoreUpdate', { id: socket.id, score: player.score, radius: player.radius, level: player.level, title: player.title, perks: player.perks, kills: player.kills, activePowerup: player.activePowerup, powerupEndTime: player.powerupEndTime });
@@ -719,7 +778,9 @@ function updateLeaderboard() {
 
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, '0.0.0.0', () => {
-    console.log(`\n✅ RYZZ.io POWER-UPS server running!`);
+    console.log(`\n✅ RYZZ.io LEVEL PROTECTION server running!`);
+    console.log(`🛡️ Low level players CANNOT eat higher level players!`);
+    console.log(`💪 Higher levels get eating advantage!`);
     console.log(`⚡ Power-ups: Speed, Shield, Magnet, Double Points, Vision`);
     console.log(`🏆 All-time leaderboard saves top 10 scores`);
     console.log(`📏 Player size cap: 200`);
