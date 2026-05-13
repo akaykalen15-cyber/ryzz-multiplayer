@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>RYZZ.io - Kills & Personal Best</title>
+    <title>RYZZ.io - All-Time Top 10</title>
     <style>
         * {
             margin: 0;
@@ -73,7 +73,7 @@
             z-index: 10;
             pointer-events: none;
         }
-        .stats, #leaderboard, #zoomControl {
+        .stats, #leaderboard, #allTimeLeaderboard, #zoomControl {
             pointer-events: auto;
             background: rgba(0, 0, 0, 0.7);
             backdrop-filter: blur(5px);
@@ -87,18 +87,21 @@
             color: #fbbf24;
             font-weight: bold;
         }
-        #leaderboard {
-            min-width: 180px;
+        #leaderboard, #allTimeLeaderboard {
+            min-width: 160px;
         }
-        #leaderboard h4 {
+        #leaderboard h4, #allTimeLeaderboard h4 {
             margin-bottom: 4px;
             color: #fbbf24;
-            font-size: 12px;
+            font-size: 11px;
         }
-        #leaderboardList {
+        #leaderboardList, #allTimeList {
             max-height: 100px;
             overflow-y: auto;
-            font-size: 11px;
+            font-size: 10px;
+        }
+        #leaderboardList div, #allTimeList div {
+            margin: 2px 0;
         }
         #zoomControl button {
             background: #3b82f6;
@@ -229,21 +232,26 @@
                 <button id="zoomResetBtn">Reset</button>
             </div>
             <div id="leaderboard">
-                <h4>🏆 LEADERBOARD</h4>
+                <h4>🏆 CURRENT TOP 10</h4>
                 <div id="leaderboardList"></div>
+            </div>
+            <div id="allTimeLeaderboard">
+                <h4>🏆 ALL-TIME TOP 10</h4>
+                <div id="allTimeList"></div>
             </div>
         </div>
         
         <div id="chatOverlay">
             <div id="chatMessages">
                 <div class="chat-system">🔔 Welcome! WASD or Arrow keys to move. Mouse to aim.</div>
+                <div class="chat-system">🏆 Type /top10 to see all-time legends!</div>
             </div>
             <div id="chatInputArea">
-                <input type="text" id="chatInput" placeholder="Type a message..." maxlength="100" autocomplete="off">
+                <input type="text" id="chatInput" placeholder="Type a message... /help for commands" maxlength="100" autocomplete="off">
                 <button id="chatSend">Send</button>
             </div>
         </div>
-        <div class="controls-hint">⬆️ WASD / Arrow Keys | 🖱️ Mouse | Scroll to zoom</div>
+        <div class="controls-hint">⬆️ WASD / Arrow Keys | 🖱️ Mouse | Scroll to zoom | 🏆 All-time records</div>
     </div>
 </div>
 
@@ -301,13 +309,13 @@
     const levelTitleElement = document.getElementById('levelTitle');
     const perksElement = document.getElementById('perksValue');
     const leaderboardList = document.getElementById('leaderboardList');
+    const allTimeList = document.getElementById('allTimeList');
     const chatMessages = document.getElementById('chatMessages');
     const chatInput = document.getElementById('chatInput');
     const chatSend = document.getElementById('chatSend');
     const adminNameSpan = document.getElementById('adminName');
     const zoomLevelSpan = document.getElementById('zoomLevel');
     
-    // Update personal best display
     bestElement.innerText = formatScore(personalBest);
     
     function formatScore(score) {
@@ -474,6 +482,20 @@
         gameLoop();
     };
     
+    // 🏆 All-Time Leaderboard event
+    socket.on('allTimeLeaderboard', (leaderboard) => {
+        let html = '';
+        for (let i = 0; i < leaderboard.length; i++) {
+            const p = leaderboard[i];
+            const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : '  ';
+            html += `<div>${medal} ${p.username} - ${formatScore(p.score)}</div>`;
+        }
+        if (leaderboard.length === 0) {
+            html = '<div style="color:#666;">Be the first!</div>';
+        }
+        allTimeList.innerHTML = html;
+    });
+    
     socket.on('currentPlayers', (serverPlayers) => {
         players = serverPlayers;
         for (let id in players) {
@@ -491,7 +513,6 @@
                 if (myPlayer.isAdmin) {
                     addChatMessage('System', 'You are ADMIN! Type /help', false, true);
                 }
-                // Load kills from server or local
                 kills = myPlayer.kills || 0;
                 killsElement.innerText = kills;
             }
@@ -567,7 +588,6 @@
             if (data.score > currentScore) {
                 currentScore = data.score;
                 scoreElement.innerText = formatScore(currentScore);
-                // Update personal best
                 if (currentScore > personalBest) {
                     personalBest = currentScore;
                     localStorage.setItem('ryzzPersonalBest', personalBest);
@@ -633,7 +653,6 @@
         window.location.reload();
     });
     
-    // Death message handler
     socket.on('deathMessage', (data) => {
         if (data.victimId === myId) {
             addChatMessage('System', `💀 You were eaten by ${data.killerName}!`, false, true);
