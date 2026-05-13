@@ -34,7 +34,6 @@ const orbValues = [100, 200, 350, 500];
 
 const botNames = ['Alpha', 'Beta', 'Gamma', 'Delta', 'Echo', 'Zeta', 'Theta', 'Sigma', 'Omega', 'Nova', 'Rex', 'Luna', 'Orion', 'Atlas'];
 
-// 🎯 LEVEL SYSTEM WITH PERKS
 function getLevel(score) {
     if (score < 1000) return 1;
     if (score < 2500) return 2;
@@ -65,7 +64,6 @@ function getLevelTitle(level) {
     return '👑 Supreme';
 }
 
-// 🎯 PERK CALCULATIONS
 function getPerks(level) {
     let speedBonus = 0;
     let sizeBonus = 0;
@@ -79,7 +77,7 @@ function getPerks(level) {
     if (level >= 6) sizeBonus += 20;
     if (level >= 7) scoreBonus += 25;
     if (level >= 8) speedBonus += 30;
-    if (level >= 9) scoreBonus += 10; // Life steal effect
+    if (level >= 9) scoreBonus += 10;
     if (level >= 10) {
         sizeBonus += 50;
         scoreBonus += 50;
@@ -187,7 +185,6 @@ function generateBot() {
     };
 }
 
-// Initialize
 generateOrbs(600);
 for (let i = 0; i < 12; i++) {
     generateBot();
@@ -212,7 +209,6 @@ setInterval(() => {
     }
 }, 10000);
 
-// Bot AI movement with perks
 setInterval(() => {
     for (const id in bots) {
         const bot = bots[id];
@@ -308,7 +304,6 @@ setInterval(() => {
     io.emit('updateBots', bots);
 }, 40);
 
-// Bot vs player collisions
 setInterval(() => {
     for (const botId in bots) {
         const bot = bots[botId];
@@ -324,8 +319,10 @@ setInterval(() => {
                     const gain = Math.floor((player.score / 3) + 200) * (bot.perks?.scoreMultiplier || 1);
                     bot.score += gain;
                     bot.radius = Math.min(100, 18 + Math.floor(bot.score / 500));
-                    player.score = Math.max(0, Math.floor(player.score / 2) - 100);
-                    player.radius = Math.max(20, 20 + Math.floor(player.score / 500));
+                    
+                    // 🔥 PLAYER LOSES 80% OF SCORE ON DEATH
+                    player.score = Math.floor(player.score / 5);
+                    player.radius = Math.max(20, 15 + Math.floor(player.score / 500));
                     player.x = Math.random() * MAP_WIDTH;
                     player.y = Math.random() * MAP_HEIGHT;
                     
@@ -427,7 +424,7 @@ io.on('connection', (socket) => {
                     player.level = newLevel;
                     player.title = getLevelTitle(newLevel);
                     player.perks = getPerks(newLevel);
-                    io.emit('chatMessage', { username: 'System', message: `🎉 ${player.username} reached ${player.title} (Level ${player.level})! +${player.perks.speedMultiplier > 1 ? ' Perks unlocked!' : ''}`, isSystem: true });
+                    io.emit('chatMessage', { username: 'System', message: `🎉 ${player.username} reached ${player.title} (Level ${player.level})!`, isSystem: true });
                 }
                 
                 updateLeaderboard();
@@ -446,6 +443,7 @@ io.on('connection', (socket) => {
         socket.emit('orbCollectionFailed', orbId);
     });
     
+    // 🔥 UPDATED EAT PLAYER WITH 80% SCORE LOSS
     socket.on('eatPlayer', (targetId) => {
         const eater = players[socket.id];
         const target = players[targetId];
@@ -464,8 +462,9 @@ io.on('connection', (socket) => {
                 io.emit('chatMessage', { username: 'System', message: `🎉 ${eater.username} reached ${eater.title} (Level ${eater.level})!`, isSystem: true });
             }
             
-            target.score = Math.max(0, Math.floor(target.score / 3));
-            target.radius = Math.max(20, 20 + Math.floor(target.score / 500));
+            // 🔥 PLAYER LOSES 80% OF SCORE ON DEATH (keeps 20%)
+            target.score = Math.floor(target.score / 5);
+            target.radius = Math.max(20, 15 + Math.floor(target.score / 500));
             target.x = Math.random() * MAP_WIDTH;
             target.y = Math.random() * MAP_HEIGHT;
             
@@ -588,10 +587,10 @@ function updateLeaderboard() {
 
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, '0.0.0.0', () => {
-    console.log(`\n✅ RYZZ.io PERK SYSTEM server running!`);
+    console.log(`\n✅ RYZZ.io DEATH PENALTY server running!`);
+    console.log(`💀 Death penalty: Lose 80% of score (keep 20%)`);
     console.log(`💎 Orb values: 100, 200, 350, 500`);
     console.log(`🎯 Level perks enabled!`);
-    console.log(`📊 Commands: /perks to see your bonuses`);
     console.log(`🗺️ Map: ${MAP_WIDTH}x${MAP_HEIGHT}`);
     console.log(`🤖 Bots: ${Object.keys(bots).length}\n`);
 });
