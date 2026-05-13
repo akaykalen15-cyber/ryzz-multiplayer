@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>RYZZ.io - Infinite Arena</title>
+    <title>RYZZ.io - WASD Movement</title>
     <style>
         * {
             margin: 0;
@@ -61,7 +61,6 @@
             border-radius: 8px;
             cursor: crosshair;
         }
-        /* UI Overlay - Top */
         #ui {
             position: absolute;
             top: 10px;
@@ -113,10 +112,9 @@
         }
         #zoomLevel {
             font-size: 11px;
-            min-width: 45px;
+            min-width: 35px;
             text-align: center;
         }
-        /* Size indicator bar */
         #sizeBarContainer {
             width: 80px;
             height: 6px;
@@ -133,7 +131,6 @@
             border-radius: 3px;
             transition: width 0.1s ease;
         }
-        /* Chat Overlay - Bottom Left */
         #chatOverlay {
             position: absolute;
             bottom: 10px;
@@ -184,17 +181,9 @@
             cursor: pointer;
             font-size: 11px;
         }
-        .chat-admin {
-            color: #fbbf24;
-            font-weight: bold;
-        }
-        .chat-system {
-            color: #ef4444;
-            font-style: italic;
-        }
-        .hidden {
-            display: none;
-        }
+        .chat-admin { color: #fbbf24; font-weight: bold; }
+        .chat-system { color: #ef4444; font-style: italic; }
+        .hidden { display: none; }
         .score-pop {
             position: fixed;
             font-weight: bold;
@@ -207,6 +196,17 @@
         @keyframes floatUp {
             0% { opacity: 1; transform: translateY(0); }
             100% { opacity: 0; transform: translateY(-40px); }
+        }
+        .controls-hint {
+            position: absolute;
+            bottom: 10px;
+            right: 10px;
+            background: rgba(0,0,0,0.5);
+            padding: 4px 8px;
+            border-radius: 6px;
+            font-size: 10px;
+            color: #888;
+            pointer-events: none;
         }
     </style>
 </head>
@@ -224,15 +224,11 @@
     <div id="gameContainer">
         <canvas id="gameCanvas" width="1200" height="800"></canvas>
         
-        <!-- UI Overlay on top of canvas -->
         <div id="ui">
             <div class="stats">🎯 Score: <span id="scoreValue">0</span></div>
             <div class="stats">📏 Size: <span id="sizeValue">20</span>
-                <div id="sizeBarContainer">
-                    <div id="sizeBar"></div>
-                </div>
+                <div id="sizeBarContainer"><div id="sizeBar"></div></div>
             </div>
-            <div class="stats">🗺️ Map: <span id="mapSize">4k</span></div>
             <div class="stats">👑 Admin: <span id="adminName"></span></div>
             <div id="zoomControl">
                 <span>🔍</span>
@@ -247,16 +243,16 @@
             </div>
         </div>
         
-        <!-- Chat Overlay - Bottom Left Inside Game -->
         <div id="chatOverlay">
             <div id="chatMessages">
-                <div class="chat-system">🔔 Welcome! Type a message to chat.</div>
+                <div class="chat-system">🔔 Welcome! WASD or Arrow keys to move. Mouse to aim (optional).</div>
             </div>
             <div id="chatInputArea">
                 <input type="text" id="chatInput" placeholder="Type a message..." maxlength="100" autocomplete="off">
                 <button id="chatSend">Send</button>
             </div>
         </div>
+        <div class="controls-hint">⬆️ WASD / Arrow Keys to move | 🖱️ Mouse optional</div>
     </div>
 </div>
 
@@ -279,14 +275,16 @@
     let currentSize = 20;
     
     let cameraX = 0, cameraY = 0;
-    let mouseX = 0, mouseY = 0;
     
-    // INFINITE ZOOM - from 5% to 300%
+    // WASD + Arrow key movement
+    let moveDirection = { x: 0, y: 0 };
+    let mouseX = null, mouseY = null;
+    let useMouse = true;
+    
     let zoom = 1.0;
-    const MIN_ZOOM = 0.05;   // 5% - see the whole map
-    const MAX_ZOOM = 3.0;    // 300% - extreme close up
+    const MIN_ZOOM = 0.05;
+    const MAX_ZOOM = 3.0;
     
-    // Dynamic map size (starts at 4000, grows up to 20000)
     let MAP_WIDTH = 4000;
     let MAP_HEIGHT = 4000;
     
@@ -302,7 +300,6 @@
     const scoreElement = document.getElementById('scoreValue');
     const sizeElement = document.getElementById('sizeValue');
     const sizeBar = document.getElementById('sizeBar');
-    const mapSizeElement = document.getElementById('mapSize');
     const leaderboardList = document.getElementById('leaderboardList');
     const chatMessages = document.getElementById('chatMessages');
     const chatInput = document.getElementById('chatInput');
@@ -310,34 +307,17 @@
     const adminNameSpan = document.getElementById('adminName');
     const zoomLevelSpan = document.getElementById('zoomLevel');
     
-    function formatMapSize(size) {
-        if (size >= 10000) {
-            return (size / 1000).toFixed(0) + 'k';
-        }
-        return (size / 1000).toFixed(1) + 'k';
-    }
-    
-    function updateMapSizeDisplay() {
-        mapSizeElement.innerText = formatMapSize(MAP_WIDTH);
-    }
+    // Keyboard state
+    const keys = {
+        ArrowUp: false, ArrowDown: false, ArrowLeft: false, ArrowRight: false,
+        w: false, s: false, a: false, d: false
+    };
     
     function updateSizeDisplay(radius) {
         currentSize = Math.floor(radius);
         sizeElement.innerText = currentSize;
         const percent = Math.min(100, (radius / 120) * 100);
         sizeBar.style.width = `${percent}%`;
-    }
-    
-    function showScorePopup(x, y, points) {
-        const rect = canvas.getBoundingClientRect();
-        const div = document.createElement('div');
-        div.className = 'score-pop';
-        div.innerText = `+${points}`;
-        div.style.left = `${rect.left + x}px`;
-        div.style.top = `${rect.top + y}px`;
-        div.style.color = '#fbbf24';
-        document.body.appendChild(div);
-        setTimeout(() => div.remove(), 500);
     }
     
     function updateZoomDisplay() {
@@ -357,6 +337,66 @@
         e.preventDefault();
         setZoom(e.deltaY < 0 ? zoom + 0.1 : zoom - 0.1);
     });
+    
+    // Keyboard event listeners
+    window.addEventListener('keydown', (e) => {
+        const key = e.key;
+        if (keys.hasOwnProperty(key)) {
+            keys[key] = true;
+            useMouse = false;
+            e.preventDefault();
+        }
+        // WASD lowercase handling
+        if (key === 'w') keys.w = true;
+        if (key === 'a') keys.a = true;
+        if (key === 's') keys.s = true;
+        if (key === 'd') keys.d = true;
+    });
+    
+    window.addEventListener('keyup', (e) => {
+        const key = e.key;
+        if (keys.hasOwnProperty(key)) {
+            keys[key] = false;
+        }
+        if (key === 'w') keys.w = false;
+        if (key === 'a') keys.a = false;
+        if (key === 's') keys.s = false;
+        if (key === 'd') keys.d = false;
+    });
+    
+    // Mouse movement - only when mouse moves
+    canvas.addEventListener('mousemove', (e) => {
+        useMouse = true;
+        const rect = canvas.getBoundingClientRect();
+        const scaleX = canvas.width / rect.width;
+        const scaleY = canvas.height / rect.height;
+        let canvasX = (e.clientX - rect.left) * scaleX;
+        let canvasY = (e.clientY - rect.top) * scaleY;
+        
+        mouseX = (canvasX / zoom) + cameraX;
+        mouseY = (canvasY / zoom) + cameraY;
+        mouseX = Math.min(Math.max(mouseX, 0), MAP_WIDTH);
+        mouseY = Math.min(Math.max(mouseY, 0), MAP_HEIGHT);
+    });
+    
+    function getMoveVector() {
+        let moveX = 0, moveY = 0;
+        
+        // Arrow keys
+        if (keys.ArrowUp || keys.w) moveY -= 1;
+        if (keys.ArrowDown || keys.s) moveY += 1;
+        if (keys.ArrowLeft || keys.a) moveX -= 1;
+        if (keys.ArrowRight || keys.d) moveX += 1;
+        
+        // Normalize diagonal movement
+        if (moveX !== 0 || moveY !== 0) {
+            const len = Math.hypot(moveX, moveY);
+            moveX /= len;
+            moveY /= len;
+        }
+        
+        return { x: moveX, y: moveY };
+    }
     
     function addChatMessage(sender, message, isAdmin = false, isSystem = false) {
         const div = document.createElement('div');
@@ -411,7 +451,7 @@
         gameLoop();
     };
     
-    // Socket events
+    // Socket events (same as before)
     socket.on('currentPlayers', (serverPlayers) => {
         players = serverPlayers;
         for (let id in players) {
@@ -425,14 +465,6 @@
                 }
             }
         }
-    });
-    
-    // Dynamic map size update
-    socket.on('mapSizeUpdate', (data) => {
-        MAP_WIDTH = data.width;
-        MAP_HEIGHT = data.height;
-        updateMapSizeDisplay();
-        console.log(`Map expanded to ${MAP_WIDTH}x${MAP_HEIGHT}`);
     });
     
     socket.on('currentBots', (serverBots) => {
@@ -455,6 +487,11 @@
     socket.on('currentOrbs', (serverOrbs) => {
         orbs = serverOrbs;
         collectingOrbIds.clear();
+    });
+    
+    socket.on('mapSizeUpdate', (data) => {
+        MAP_WIDTH = data.width;
+        MAP_HEIGHT = data.height;
     });
     
     socket.on('newPlayer', (playerData) => {
@@ -537,30 +574,39 @@
         window.location.reload();
     });
     
-    canvas.addEventListener('mousemove', (e) => {
-        if (!myPlayer) return;
-        const rect = canvas.getBoundingClientRect();
-        const scaleX = canvas.width / rect.width;
-        const scaleY = canvas.height / rect.height;
-        let canvasX = (e.clientX - rect.left) * scaleX;
-        let canvasY = (e.clientY - rect.top) * scaleY;
-        
-        mouseX = (canvasX / zoom) + cameraX;
-        mouseY = (canvasY / zoom) + cameraY;
-        mouseX = Math.min(Math.max(mouseX, 0), MAP_WIDTH);
-        mouseY = Math.min(Math.max(mouseY, 0), MAP_HEIGHT);
-    });
-    
     function movePlayer() {
         if (!myPlayer) return;
-        const dx = mouseX - myPlayer.x;
-        const dy = mouseY - myPlayer.y;
+        
+        let targetX = myPlayer.x;
+        let targetY = myPlayer.y;
+        
+        if (useMouse && mouseX !== null && mouseY !== null) {
+            // Mouse follow mode
+            targetX = mouseX;
+            targetY = mouseY;
+        } else {
+            // WASD/Arrow key mode
+            const move = getMoveVector();
+            if (move.x !== 0 || move.y !== 0) {
+                const speed = Math.min(6, 150 / myPlayer.radius);
+                targetX = myPlayer.x + move.x * speed;
+                targetY = myPlayer.y + move.y * speed;
+            }
+        }
+        
+        // Move toward target
+        const dx = targetX - myPlayer.x;
+        const dy = targetY - myPlayer.y;
         const distance = Math.hypot(dx, dy);
         if (distance > 1) {
             const speed = Math.min(6, 150 / myPlayer.radius);
             myPlayer.x += (dx / distance) * speed;
             myPlayer.y += (dy / distance) * speed;
+        } else if (!useMouse) {
+            myPlayer.x = targetX;
+            myPlayer.y = targetY;
         }
+        
         myPlayer.x = Math.min(Math.max(myPlayer.x, myPlayer.radius + 5), MAP_WIDTH - myPlayer.radius - 5);
         myPlayer.y = Math.min(Math.max(myPlayer.y, myPlayer.radius + 5), MAP_HEIGHT - myPlayer.radius - 5);
         socket.emit('playerMovement', { x: myPlayer.x, y: myPlayer.y });
@@ -584,7 +630,7 @@
                 
                 const screenX = (orb.x - cameraX) * zoom;
                 const screenY = (orb.y - cameraY) * zoom;
-                showScorePopup(screenX, screenY, orb.value);
+                // showScorePopup(screenX, screenY, orb.value);
                 break;
             }
         }
@@ -631,7 +677,6 @@
         ctx.fillStyle = '#0a0f1e';
         ctx.fillRect(0, 0, canvas.width, canvas.height);
         
-        // Draw adaptive grid (grid size changes with zoom)
         let gridSize = 200;
         if (zoom < 0.3) gridSize = 500;
         if (zoom < 0.15) gridSize = 1000;
@@ -656,7 +701,6 @@
             ctx.stroke();
         }
         
-        // Draw orbs
         for (const orb of orbs) {
             const screenX = (orb.x - cameraX) * zoom;
             const screenY = (orb.y - cameraY) * zoom;
@@ -667,17 +711,9 @@
                 ctx.arc(screenX, screenY, radius, 0, Math.PI * 2);
                 ctx.fillStyle = orb.color;
                 ctx.fill();
-                // Add shine for rare orbs
-                if (orb.value >= 50) {
-                    ctx.beginPath();
-                    ctx.arc(screenX - radius * 0.3, screenY - radius * 0.3, radius * 0.2, 0, Math.PI * 2);
-                    ctx.fillStyle = 'rgba(255,255,255,0.6)';
-                    ctx.fill();
-                }
             }
         }
         
-        // Draw players
         for (const id in players) {
             if (id === myId) continue;
             const p = players[id];
@@ -688,30 +724,18 @@
                 screenY + radius > 0 && screenY - radius < canvas.height) {
                 ctx.beginPath();
                 ctx.arc(screenX, screenY, radius, 0, Math.PI * 2);
-                if (p.isBot) {
-                    ctx.fillStyle = '#a855f7';
-                } else if (p.isAdmin) {
-                    ctx.fillStyle = '#fbbf24';
-                } else if (p.radius > myPlayer.radius) {
-                    ctx.fillStyle = '#ff4444';
-                } else {
-                    ctx.fillStyle = '#ef4444';
-                }
+                if (p.isBot) ctx.fillStyle = '#a855f7';
+                else if (p.isAdmin) ctx.fillStyle = '#fbbf24';
+                else if (p.radius > myPlayer.radius) ctx.fillStyle = '#ff4444';
+                else ctx.fillStyle = '#ef4444';
                 ctx.fill();
                 ctx.fillStyle = 'white';
                 ctx.font = `${Math.max(10, 12 * zoom)}px Arial`;
                 const displayName = p.isBot ? `🤖 ${p.username}` : p.username;
                 ctx.fillText(displayName, screenX - 25 * zoom, screenY - 15 * zoom);
-                
-                if (p.isBot && p.radius > myPlayer.radius * 1.2) {
-                    ctx.fillStyle = '#ff0000';
-                    ctx.font = `${14 * zoom}px Arial`;
-                    ctx.fillText('⚠️', screenX + 15 * zoom, screenY - 10 * zoom);
-                }
             }
         }
         
-        // Draw my player
         const myScreenX = (myPlayer.x - cameraX) * zoom;
         const myScreenY = (myPlayer.y - cameraY) * zoom;
         const myRadius = myPlayer.radius * zoom;
@@ -729,17 +753,6 @@
             ctx.fillStyle = '#fbbf24';
             ctx.font = `${Math.max(12, 16 * zoom)}px Arial`;
             ctx.fillText('👑', myScreenX + 5 * zoom, myScreenY - 15 * zoom);
-        }
-        
-        // Draw mini-map indicator when zoomed out
-        if (zoom < 0.3) {
-            ctx.fillStyle = 'rgba(0,0,0,0.5)';
-            ctx.fillRect(5, 5, 100, 60);
-            ctx.fillStyle = '#3b82f6';
-            ctx.fillRect(5 + (myPlayer.x / MAP_WIDTH) * 100, 5 + (myPlayer.y / MAP_HEIGHT) * 60, 4, 4);
-            ctx.fillStyle = '#fbbf24';
-            ctx.font = '8px Arial';
-            ctx.fillText('YOU', 5 + (myPlayer.x / MAP_WIDTH) * 100 - 5, 5 + (myPlayer.y / MAP_HEIGHT) * 60 - 2);
         }
     }
 </script>
