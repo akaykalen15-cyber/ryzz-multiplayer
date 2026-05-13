@@ -22,6 +22,9 @@ const ADMIN_PASSWORD = 'ryzzking2024';
 
 let players = {};
 let bots = {};
+let bossBot = null;
+let bossBotSpawnTime = 0;
+const BOSS_SPAWN_INTERVAL = 600000; // 10 minutes
 
 let MAP_WIDTH = 4000;
 let MAP_HEIGHT = 4000;
@@ -44,6 +47,7 @@ const powerupTypes = [
 ];
 
 const botNames = ['Alpha', 'Beta', 'Gamma', 'Delta', 'Echo', 'Zeta', 'Theta', 'Sigma', 'Nova', 'Rex'];
+const bossNames = ['👑 TITAN', '👑 COLOSSUS', '👑 BEHEMOTH', '👑 LEVIATHAN', '👑 KRAKEN', '👑 GODZILLA'];
 
 // Load all-time leaderboard
 let allTimeTop10 = [];
@@ -173,10 +177,10 @@ function getLevelTitle(level) {
 }
 
 function getPerks(level) {
-    let speedBonus = Math.min(Math.floor(level * 1.5), 200);
-    let sizeBonus = Math.min(Math.floor(level * 1.2), 150);
-    let scoreBonus = Math.min(Math.floor(level * 1), 150);
-    let eatRangeBonus = Math.min(Math.floor(level * 0.8), 100);
+    let speedBonus = Math.min(Math.floor(level * 1.5), 500);
+    let sizeBonus = Math.min(Math.floor(level * 1.2), 500);
+    let scoreBonus = Math.min(Math.floor(level * 1), 500);
+    let eatRangeBonus = Math.min(Math.floor(level * 0.8), 300);
     
     return {
         speedMultiplier: 1 + (speedBonus / 100),
@@ -197,6 +201,7 @@ function updateMapSize() {
     let highestScore = 0;
     for (const id in players) if (players[id].score > highestScore) highestScore = players[id].score;
     for (const id in bots) if (bots[id].score > highestScore) highestScore = bots[id].score;
+    if (bossBot && bossBot.score > highestScore) highestScore = bossBot.score;
     
     let newSize = Math.min(MAX_MAP_SIZE, MIN_MAP_SIZE + Math.floor(highestScore / 100));
     if (newSize !== MAP_WIDTH) {
@@ -252,32 +257,189 @@ function generateBot() {
     };
 }
 
-generateOrbs(600);
-for (let i = 0; i < 5; i++) generatePowerup();
-for (let i = 0; i < 8; i++) generateBot();
+// 👑 SPAWN BOSS BOT
+function spawnBossBot() {
+    if (bossBot) return;
+    
+    const bossName = bossNames[Math.floor(Math.random() * bossNames.length)];
+    const bossLevel = 30 + Math.floor(Math.random() * 20);
+    const bossScore = 50000 + Math.floor(Math.random() * 50000);
+    
+    bossBot = {
+        id: 'boss_' + Math.random().toString(36).substr(2, 8),
+        username: bossName,
+        x: Math.random() * MAP_WIDTH,
+        y: Math.random() * MAP_HEIGHT,
+        radius: 100,
+        score: bossScore,
+        level: bossLevel,
+        title: '👑 BOSS',
+        perks: getPerks(bossLevel),
+        isBot: true,
+        isBoss: true,
+        kills: 0
+    };
+    
+    bossBotSpawnTime = Date.now();
+    
+    io.emit('bossSpawned', bossBot);
+    io.emit('chatMessage', { username: 'System', message: `⚠️⚠️⚠️ ${bossName} (Level ${bossLevel}) HAS APPEARED! ⚠️⚠️⚠️`, isSystem: true });
+    io.emit('chatMessage', { username: 'System', message: `👑 Requires LEVEL 15 to damage! Defeat the boss for 10,000,000 points!`, isSystem: true });
+    
+    console.log(`👑 BOSS BOT SPAWNED: ${bossName} (Level ${bossLevel}) - Requires Level 15+ - Reward: 10,000,000 points`);
+}
 
-setInterval(() => updateMapSize(), 1000);
-
-setInterval(() => {
-    if (orbs.length < 400) {
-        generateOrbs(80);
-    } else {
-        generateOrbs(20);
+function moveBossBot() {
+    if (!bossBot) return;
+    
+    let nearestPlayer = null;
+    let playerDist = Infinity;
+    for (const pid in players) {
+        const dist = Math.hypot(bossBot.x - players[pid].x, bossBot.y - players[pid].y);
+        if (dist < playerDist) {
+            playerDist = dist;
+            nearestPlayer = players[pid];
+        }
     }
-}, 800);
-
-setInterval(() => {
-    if (powerups.length < 5) {
-        generatePowerup();
+    
+    let moveX = 0, moveY = 0;
+    const bossSpeed = 2.5;
+    
+    if (nearestPlayer && playerDist < 400) {
+        const dx = nearestPlayer.x - bossBot.x;
+        const dy = nearestPlayer.y - bossBot.y;
+        const len = playerDist;
+        if (len > 0) {
+            moveX = (dx / len) * bossSpeed;
+            moveY = (dy / len) * bossSpeed;
+        }
     }
-}, 15000);
-
-setInterval(() => {
-    const botCount = Object.keys(bots).length;
-    if (botCount < 6) {
-        generateBot();
+    
+    if (moveX === 0 && moveY === 0) {
+        moveX = (Math.random() - 0.5) * 2;
+        moveY = (Math.random() - 0.5) * 2;
     }
-}, 15000);
+    
+    bossBot.x += moveX;
+    bossBot.y += moveY;
+    bossBot.x = Math.min(Math.max(bossBot.x, bossBot.radius + 5), MAP_WIDTH - bossBot.radius - 5);
+    bossBot.y = Math.min(Math.max(bossBot.y, bossBot.radius + 5), MAP_HEIGHT - bossBot.radius - 5);
+    
+    for (let i = 0; i < orbs.length; i++) {
+        const orb = orbs[i];
+        if (Math.hypot(bossBot.x - orb.x, bossBot.y - orb.y) < bossBot.radius + orb.radius) {
+            bossBot.score += orb.value;
+            bossBot.radius = Math.min(150, 100 + Math.floor(bossBot.score / 500));
+            orbs.splice(i, 1);
+            i--;
+        }
+    }
+    
+    io.emit('updateBoss', bossBot);
+}
+
+// 👑 BOSS VS PLAYER COLLISIONS - LEVEL 15+ ONLY
+function checkBossCollisions() {
+    if (!bossBot) return;
+    
+    for (const playerId in players) {
+        const player = players[playerId];
+        const dist = Math.hypot(bossBot.x - player.x, bossBot.y - player.y);
+        
+        if (dist < bossBot.radius + player.radius) {
+            // 🔒 LEVEL 15 REQUIREMENT - Players below level 15 cannot damage the boss
+            if (player.level < 15) {
+                // Bounce away low level players
+                const angle = Math.atan2(player.y - bossBot.y, player.x - bossBot.x);
+                player.x += Math.cos(angle) * 40;
+                player.y += Math.sin(angle) * 40;
+                bossBot.x -= Math.cos(angle) * 20;
+                bossBot.y -= Math.sin(angle) * 20;
+                io.emit('playerMoved', player);
+                io.emit('updateBoss', bossBot);
+                io.emit('chatMessage', { username: 'System', message: `🛡️ ${player.username} needs LEVEL 15 to fight the boss!`, isSystem: true });
+                continue;
+            }
+            
+            if (bossBot.radius > player.radius && !player.isAdmin) {
+                // Boss eats player
+                player.score = Math.floor(player.score / 3);
+                player.radius = Math.min(200, 20 + Math.floor(player.score / 50));
+                player.x = Math.random() * MAP_WIDTH;
+                player.y = Math.random() * MAP_HEIGHT;
+                const newLevel = getLevel(player.score);
+                player.level = newLevel;
+                player.title = getLevelTitle(newLevel);
+                player.perks = getPerks(newLevel);
+                io.emit('playerMoved', player);
+                io.emit('deathMessage', { victimId: playerId, killerName: bossBot.username });
+                io.emit('chatMessage', { username: 'System', message: `💀 ${bossBot.username} crushed ${player.username}!`, isSystem: true });
+                updateLeaderboard();
+            } else if (player.radius > bossBot.radius || player.level >= 15) {
+                // Player defeats boss! (Level 15+ or larger size)
+                const gain = 10000000 * (player.perks?.scoreMultiplier || 1); // 10 MILLION POINTS
+                const oldScore = player.score;
+                player.score += gain;
+                player.radius = Math.min(200, 20 + Math.floor(player.score / 50));
+                player.kills = (player.kills || 0) + 1;
+                
+                const newLevel = getLevel(player.score);
+                if (newLevel !== player.level) {
+                    player.level = newLevel;
+                    player.title = getLevelTitle(newLevel);
+                    player.perks = getPerks(newLevel);
+                }
+                
+                updateAllTimeLeaderboard(player.username, player.score);
+                if (player.score > player.personalBest) {
+                    player.personalBest = player.score;
+                    io.emit('personalBestUpdate', player.personalBest);
+                }
+                
+                io.emit('chatMessage', { username: 'System', message: `🎉🎉🎉 ${player.username} DEFEATED THE BOSS ${bossBot.username}! +10,000,000 points! 🎉🎉🎉`, isSystem: true });
+                io.emit('chatMessage', { username: 'System', message: `👑 ${player.username} earned the title "BOSS SLAYER"!`, isSystem: true });
+                
+                player.bossSlayer = true;
+                
+                // Despawn boss
+                bossBot = null;
+                updateLeaderboard();
+                break;
+            } else {
+                // Bounce
+                const angle = Math.atan2(player.y - bossBot.y, player.x - bossBot.x);
+                player.x += Math.cos(angle) * 30;
+                player.y += Math.sin(angle) * 30;
+                bossBot.x -= Math.cos(angle) * 30;
+                bossBot.y -= Math.sin(angle) * 30;
+                io.emit('playerMoved', player);
+                io.emit('updateBoss', bossBot);
+            }
+        }
+    }
+}
+
+// Boss bot despawn timer (5 minutes)
+setInterval(() => {
+    if (bossBot && Date.now() - bossBotSpawnTime > 300000) {
+        io.emit('chatMessage', { username: 'System', message: `⏰ The boss ${bossBot.username} has retreated!`, isSystem: true });
+        bossBot = null;
+    }
+}, 10000);
+
+// Spawn boss every 10 minutes
+setInterval(() => {
+    if (!bossBot) {
+        spawnBossBot();
+    }
+}, BOSS_SPAWN_INTERVAL);
+
+// Spawn first boss after 5 minutes
+setTimeout(() => {
+    if (!bossBot) {
+        spawnBossBot();
+    }
+}, 300000);
 
 // Bot AI movement
 setInterval(() => {
@@ -338,9 +500,14 @@ setInterval(() => {
         }
     }
     io.emit('updateBots', bots);
+    
+    if (bossBot) {
+        moveBossBot();
+        checkBossCollisions();
+    }
 }, 40);
 
-// Bot vs player collisions
+// Regular bot vs player collisions
 setInterval(() => {
     for (const botId in bots) {
         const bot = bots[botId];
@@ -384,6 +551,9 @@ setInterval(() => {
 io.on('connection', (socket) => {
     console.log(`Player connected: ${socket.id}`);
     socket.emit('allTimeLeaderboard', allTimeTop10);
+    if (bossBot) {
+        socket.emit('bossSpawned', bossBot);
+    }
 
     socket.on('joinGame', (data) => {
         const username = data.username, password = data.password || '';
@@ -400,7 +570,6 @@ io.on('connection', (socket) => {
             return;
         }
         
-        // Check if player is already in game
         let existingPlayerId = null;
         for (let id in players) {
             if (players[id].username === username) {
@@ -421,7 +590,7 @@ io.on('connection', (socket) => {
             id: socket.id, username: username, x: Math.random() * MAP_WIDTH, y: Math.random() * MAP_HEIGHT,
             radius: 20, score: 0, level: 1, title: '🍼 Newbie', perks: getPerks(1),
             isAdmin: isAdmin, kills: 0, activePowerup: null, powerupEndTime: 0,
-            personalBest: personalBest
+            personalBest: personalBest, bossSlayer: false
         };
         
         socket.emit('currentOrbs', orbs);
@@ -515,16 +684,14 @@ io.on('connection', (socket) => {
         io.emit('chatMessage', { username: 'System', message: `⚡ ${player.username} got ${powerup.name}!`, isSystem: true });
     });
 
-    // 🔥 EAT PLAYER WITH LEVEL PROTECTION - Low levels CANNOT eat high levels
+    // EAT PLAYER WITH LEVEL PROTECTION
     socket.on('eatPlayer', (targetId) => {
         const eater = players[socket.id];
         const target = players[targetId];
         if (!eater || !target) return;
         
-        // 🛡️ PROTECTION: Low level players CANNOT eat higher level players
         if (eater.level < target.level) {
             io.emit('chatMessage', { username: 'System', message: `🛡️ ${target.username} (Lvl ${target.level}) is too high level for ${eater.username} (Lvl ${eater.level}) to eat!`, isSystem: true });
-            // Bounce apart
             const angle = Math.atan2(eater.y - target.y, eater.x - target.x);
             eater.x += Math.cos(angle) * 30;
             eater.y += Math.sin(angle) * 30;
@@ -535,21 +702,18 @@ io.on('connection', (socket) => {
             return;
         }
         
-        // Calculate effective size with level bonus for higher level players
         let levelAdvantage = 0;
         if (eater.level > target.level) {
-            levelAdvantage = (eater.level - target.level) * 0.5; // 0.5% per level advantage
+            levelAdvantage = (eater.level - target.level) * 0.5;
         }
         
         const eaterEffectiveSize = eater.radius * (1 + levelAdvantage / 100);
         const targetHasShield = (target.activePowerup === 'shield' && Date.now() < target.powerupEndTime);
         
-        // Check if eater can eat target (size advantage OR level advantage)
         if ((eaterEffectiveSize > target.radius || eater.level > target.level) && !target.isAdmin && !targetHasShield) {
             let multiplier = 1;
             if (eater.activePowerup === 'double' && Date.now() < eater.powerupEndTime) multiplier = 2;
             
-            // Bonus points based on level difference
             const levelDiff = eater.level - target.level;
             const levelBonusPoints = Math.max(0, levelDiff * 50);
             
@@ -601,7 +765,6 @@ io.on('connection', (socket) => {
         } else if (targetHasShield) {
             io.emit('chatMessage', { username: 'System', message: `🛡️ ${target.username}'s shield blocked the attack!`, isSystem: true });
         } else {
-            // Not big enough to eat - bounce
             const angle = Math.atan2(eater.y - target.y, eater.x - target.x);
             eater.x += Math.cos(angle) * 20;
             eater.y += Math.sin(angle) * 20;
@@ -772,19 +935,20 @@ function updateLeaderboard() {
     const list = [];
     for (const id in players) list.push({ username: players[id].username, score: players[id].score, level: players[id].level, title: players[id].title, isAdmin: players[id].isAdmin, kills: players[id].kills || 0 });
     for (const id in bots) list.push({ username: '🤖 ' + bots[id].username, score: bots[id].score, level: bots[id].level, title: bots[id].title, isAdmin: false, kills: bots[id].kills || 0 });
+    if (bossBot) list.push({ username: '👑 ' + bossBot.username, score: bossBot.score, level: bossBot.level, title: 'BOSS', isAdmin: false, kills: 0 });
     list.sort((a, b) => b.score - a.score);
     io.emit('leaderboardUpdate', list.slice(0, 10));
 }
 
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, '0.0.0.0', () => {
-    console.log(`\n✅ RYZZ.io LEVEL PROTECTION server running!`);
+    console.log(`\n✅ RYZZ.io BOSS BOT EVENT server running!`);
+    console.log(`👑 Boss bot spawns every 10 minutes!`);
+    console.log(`🔒 Requires LEVEL 15 to damage the boss!`);
+    console.log(`💀 Defeat the boss for 10,000,000 points!`);
     console.log(`🛡️ Low level players CANNOT eat higher level players!`);
-    console.log(`💪 Higher levels get eating advantage!`);
     console.log(`⚡ Power-ups: Speed, Shield, Magnet, Double Points, Vision`);
     console.log(`🏆 All-time leaderboard saves top 10 scores`);
-    console.log(`📏 Player size cap: 200`);
-    console.log(`🔒 Admin name "RYZZ" is protected`);
     console.log(`👑 Admin: ${ADMIN_NAME}`);
     console.log(`🤖 Bots: ${Object.keys(bots).length}`);
     console.log(`🟡 Orbs: ${orbs.length}\n`);
