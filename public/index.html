@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>RYZZ.io - Smart Zoom & Infinite Orbs</title>
+    <title>RYZZ.io - Manual Zoom</title>
     <style>
         * {
             margin: 0;
@@ -359,14 +359,14 @@
         <div id="chatOverlay">
             <div id="chatMessages">
                 <div class="chat-system">🔔 Welcome! WASD or Arrow keys to move. Mouse to aim.</div>
-                <div class="chat-system">📈 Infinite levels & perks! Smart zoom adjusts automatically!</div>
+                <div class="chat-system">🔍 Use mouse wheel or +/- buttons to zoom freely!</div>
             </div>
             <div id="chatInputArea">
                 <input type="text" id="chatInput" placeholder="Type a message... /help for commands" maxlength="100" autocomplete="off">
                 <button id="chatSend">Send</button>
             </div>
         </div>
-        <div class="controls-hint">⬆️ WASD / Arrow Keys | 🖱️ Mouse | Scroll to zoom | 👑 Admin Panel</div>
+        <div class="controls-hint">⬆️ WASD / Arrow Keys | 🖱️ Mouse | Scroll to zoom (2% to 300%) | 👑 Admin Panel</div>
     </div>
 </div>
 
@@ -399,9 +399,10 @@
     let mouseX = null, mouseY = null;
     let useMouse = true;
     
+    // MANUAL ZOOM - Full control (2% to 300%)
     let zoom = 1.0;
-    const MAX_ZOOM = 3.0;
-    let MIN_ZOOM = 0.05; // Will be updated dynamically
+    const MIN_ZOOM = 0.02;   // 2% - zoom out very far
+    const MAX_ZOOM = 3.0;    // 300% - zoom in close
     
     let MAP_WIDTH = 4000;
     let MAP_HEIGHT = 4000;
@@ -474,20 +475,11 @@
         return '#3b82f6';
     }
     
-    // SMART ZOOM: Calculate minimum zoom based on largest cell
-    function updateMinZoom() {
-        let largestRadius = 20;
-        for (const id in players) {
-            if (players[id].radius > largestRadius) largestRadius = players[id].radius;
-        }
-        for (const id in bots) {
-            if (bots[id].radius > largestRadius) largestRadius = bots[id].radius;
-        }
-        // Dynamic min zoom: ensures largest cell fits on screen
-        // Formula: (screen width / largest radius) / 2 for comfortable view
-        const screenWidth = canvas.width;
-        const dynamicMinZoom = Math.max(0.02, (screenWidth / largestRadius) * 0.8);
-        return Math.min(dynamicMinZoom, 0.5); // Cap at 50% to avoid extreme zoom out
+    function updateSizeDisplay(radius) {
+        currentSize = Math.floor(radius);
+        sizeElement.innerText = currentSize;
+        let percent = Math.min(100, (radius / 500) * 100);
+        sizeBar.style.width = `${percent}%`;
     }
     
     function updateZoomDisplay() {
@@ -495,26 +487,17 @@
     }
     
     function setZoom(newZoom) {
-        const actualMinZoom = updateMinZoom();
-        zoom = Math.min(MAX_ZOOM, Math.max(actualMinZoom, newZoom));
+        zoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, newZoom));
         updateZoomDisplay();
     }
     
     document.getElementById('zoomInBtn').onclick = () => setZoom(zoom + 0.1);
-    document.getElementById('zoomOutBtn').onclick = () => {
-        const actualMinZoom = updateMinZoom();
-        setZoom(Math.max(actualMinZoom, zoom - 0.1));
-    };
+    document.getElementById('zoomOutBtn').onclick = () => setZoom(zoom - 0.1);
     document.getElementById('zoomResetBtn').onclick = () => setZoom(1.0);
     
     canvas.addEventListener('wheel', (e) => {
         e.preventDefault();
-        const actualMinZoom = updateMinZoom();
-        if (e.deltaY < 0) {
-            setZoom(zoom + 0.1);
-        } else {
-            setZoom(Math.max(actualMinZoom, zoom - 0.1));
-        }
+        setZoom(e.deltaY < 0 ? zoom + 0.1 : zoom - 0.1);
     });
     
     const keys = {
@@ -730,8 +713,6 @@
                 }
                 kills = myPlayer.kills || 0;
                 killsElement.innerText = kills;
-                // Update min zoom when new player joins
-                setZoom(zoom);
             }
         }
     });
@@ -753,8 +734,6 @@
             players[id] = { ...serverBots[id], isBot: true };
         }
         updatePlayerSelect();
-        // Update min zoom when bots update
-        setZoom(zoom);
     });
     
     socket.on('currentOrbs', (serverOrbs) => {
@@ -844,8 +823,6 @@
                 currentPerks = data.perks;
                 perksElement.innerHTML = formatPerks(data.perks);
             }
-            // Update min zoom when score updates
-            setZoom(zoom);
         }
     });
     
@@ -1021,7 +998,6 @@
             ctx.stroke();
         }
         
-        // Draw orbs (they spawn everywhere, including around giant cells)
         for (const orb of orbs) {
             const screenX = (orb.x - cameraX) * zoom;
             const screenY = (orb.y - cameraY) * zoom;
@@ -1032,7 +1008,6 @@
                 ctx.arc(screenX, screenY, radius, 0, Math.PI * 2);
                 ctx.fillStyle = orb.color;
                 ctx.fill();
-                // Add glow for rare orbs
                 if (orb.value >= 350) {
                     ctx.shadowBlur = 6 * zoom;
                     ctx.shadowColor = orb.color;
@@ -1042,7 +1017,6 @@
             }
         }
         
-        // Draw players
         for (const id in players) {
             if (id === myId) continue;
             const p = players[id];
@@ -1071,16 +1045,14 @@
                 } else {
                     ctx.fillText(displayName, screenX - 30 * zoom, screenY - 15 * zoom);
                 }
-                // Draw size indicator for giant bots
-                if (p.isBot && p.radius > 500) {
+                if (p.isBot && p.radius > 100) {
                     ctx.fillStyle = '#ff0000';
-                    ctx.font = `${14 * zoom}px Arial`;
-                    ctx.fillText('⚠️ GIANT ⚠️', screenX - 35 * zoom, screenY - 25 * zoom);
+                    ctx.font = `${12 * zoom}px Arial`;
+                    ctx.fillText('⚠️ GIANT ⚠️', screenX - 30 * zoom, screenY - 25 * zoom);
                 }
             }
         }
         
-        // Draw my player
         const myScreenX = (myPlayer.x - cameraX) * zoom;
         const myScreenY = (myPlayer.y - cameraY) * zoom;
         const myRadius = myPlayer.radius * zoom;
@@ -1145,12 +1117,12 @@
         for (const id in players) {
             if (id === myId) continue;
             const p = players[id];
-            if (p.radius > myPlayer.radius * 3) {
+            if (p.radius > myPlayer.radius * 2) {
                 const dist = Math.hypot(myPlayer.x - p.x, myPlayer.y - p.y);
-                if (dist < 500) {
+                if (dist < 400) {
                     ctx.fillStyle = '#ff0000';
-                    ctx.font = `${20 * zoom}px Arial`;
-                    ctx.fillText('⚠️ GIANT NEARBY! RUN! ⚠️', myScreenX - 80 * zoom, myScreenY - 50 * zoom);
+                    ctx.font = `${18 * zoom}px Arial`;
+                    ctx.fillText('⚠️ GIANT NEARBY! RUN! ⚠️', myScreenX - 70 * zoom, myScreenY - 50 * zoom);
                 }
             }
         }
