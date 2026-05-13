@@ -6,41 +6,19 @@ const path = require('path');
 const app = express();
 const server = http.createServer(app);
 
-// 🔧 PERFORMANCE OPTIMIZATIONS
-app.set('trust proxy', 1);
-app.enable('view cache');
-
-// Socket.IO with performance settings
 const io = socketIO(server, {
     cors: {
         origin: "*",
         methods: ["GET", "POST"]
     },
-    // Performance settings
     pingTimeout: 60000,
     pingInterval: 25000,
-    upgradeTimeout: 10000,
-    allowUpgrades: true,
-    cookie: false,
-    serveClient: false,
-    // Reduce packet size
-    perMessageDeflate: {
-        threshold: 1024 // Only compress messages > 1KB
-    },
-    transports: ['websocket', 'polling'], // WebSocket first for speed
-    allowEIO3: true
+    transports: ['websocket', 'polling']
 });
 
-// Increase server timeout for slow connections
 server.timeout = 120000;
-server.keepAliveTimeout = 65000;
-server.headersTimeout = 66000;
 
-app.use(express.static(path.join(__dirname, 'public'), {
-    maxAge: '1d', // Cache static files
-    etag: true,
-    lastModified: true
-}));
+app.use(express.static(path.join(__dirname, 'public')));
 
 const ADMIN_NAME = 'RYZZ';
 const ADMIN_PASSWORD = 'ryzzking2024';
@@ -55,20 +33,13 @@ let orbs = [];
 
 const botNames = ['Alpha', 'Beta', 'Gamma', 'Delta', 'Echo', 'Zeta', 'Theta', 'Sigma', 'Omega', 'Nova', 'Rex', 'Luna', 'Orion', 'Atlas'];
 
-// Pre-allocate arrays for better performance
 const orbColors = ['#fbbf24', '#22c55e', '#3b82f6', '#a855f7'];
 const orbValues = [10, 25, 50, 100];
 
-// Cache for leaderboard to reduce broadcasts
-let cachedLeaderboard = [];
-let lastLeaderboardUpdate = 0;
-const LEADERBOARD_CACHE_MS = 500;
-
 function generateOrbs(count) {
-    const newOrbs = [];
     for (let i = 0; i < count; i++) {
         const idx = Math.floor(Math.random() * orbColors.length);
-        newOrbs.push({
+        orbs.push({
             id: Math.random().toString(36).substr(2, 8),
             x: Math.random() * MAP_WIDTH,
             y: Math.random() * MAP_HEIGHT,
@@ -77,7 +48,6 @@ function generateOrbs(count) {
             color: orbColors[idx]
         });
     }
-    orbs.push(...newOrbs);
     console.log(`Total orbs: ${orbs.length}`);
 }
 
@@ -93,6 +63,7 @@ function generateBot() {
         score: 50,
         isBot: true
     };
+    console.log(`🤖 Bot spawned: ${name}`);
 }
 
 // Initialize game
@@ -101,7 +72,7 @@ for (let i = 0; i < 10; i++) {
     generateBot();
 }
 
-// Optimized orb respawn - less frequent but more orbs
+// Orb respawn
 setInterval(() => {
     if (orbs.length < 250) {
         generateOrbs(80);
@@ -120,26 +91,14 @@ setInterval(() => {
     }
 }, 15000);
 
-// Optimized bot AI - fewer calculations, smoother movement
-let lastBotMove = 0;
-const BOT_MOVE_INTERVAL = 50; // 50ms = 20fps for bots
-
-function updateBots() {
-    const now = Date.now();
-    if (now - lastBotMove < BOT_MOVE_INTERVAL) return;
-    lastBotMove = now;
-    
-    const playersList = Object.values(players);
-    const orbsList = orbs;
-    
+// Bot AI movement
+setInterval(() => {
     for (const id in bots) {
         const bot = bots[id];
         
-        // Find nearest orb (optimized)
         let nearestOrb = null;
         let nearestDist = Infinity;
-        for (let i = 0; i < orbsList.length; i++) {
-            const orb = orbsList[i];
+        for (const orb of orbs) {
             const dx = bot.x - orb.x;
             const dy = bot.y - orb.y;
             const dist = dx * dx + dy * dy;
@@ -149,11 +108,10 @@ function updateBots() {
             }
         }
         
-        // Find nearest player
         let nearestPlayer = null;
         let playerDist = Infinity;
-        for (let i = 0; i < playersList.length; i++) {
-            const p = playersList[i];
+        for (const pid in players) {
+            const p = players[pid];
             const dx = bot.x - p.x;
             const dy = bot.y - p.y;
             const dist = dx * dx + dy * dy;
@@ -165,7 +123,7 @@ function updateBots() {
         
         let moveX = 0, moveY = 0;
         
-        if (nearestPlayer && playerDist < 122500) { // 350^2
+        if (nearestPlayer && playerDist < 122500) {
             const dist = Math.sqrt(playerDist);
             if (bot.radius > nearestPlayer.radius + 10) {
                 const dx = nearestPlayer.x - bot.x;
@@ -204,28 +162,27 @@ function updateBots() {
         bot.x = Math.min(Math.max(bot.x, bot.radius + 5), MAP_WIDTH - bot.radius - 5);
         bot.y = Math.min(Math.max(bot.y, bot.radius + 5), MAP_HEIGHT - bot.radius - 5);
         
-        // Bot collects orbs (optimized with backwards loop)
-        for (let i = orbsList.length - 1; i >= 0; i--) {
-            const orb = orbsList[i];
+        for (let i = 0; i < orbs.length; i++) {
+            const orb = orbs[i];
             const dx = bot.x - orb.x;
             const dy = bot.y - orb.y;
             if (dx * dx + dy * dy < (bot.radius + orb.radius) ** 2) {
                 bot.score += orb.value;
                 bot.radius = Math.min(100, 18 + Math.floor(bot.score / 70));
                 orbs.splice(i, 1);
+                i--;
             }
         }
     }
     io.emit('updateBots', bots);
-}
+}, 60);
 
-// Bot vs player collisions (optimized)
-function checkBotCollisions() {
-    const playersList = Object.values(players);
-    const botsList = Object.values(bots);
-    
-    for (const bot of botsList) {
-        for (const player of playersList) {
+// Bot vs player collisions
+setInterval(() => {
+    for (const botId in bots) {
+        const bot = bots[botId];
+        for (const playerId in players) {
+            const player = players[playerId];
             const dx = bot.x - player.x;
             const dy = bot.y - player.y;
             const distSq = dx * dx + dy * dy;
@@ -248,7 +205,7 @@ function checkBotCollisions() {
                     player.score += gain;
                     player.radius = Math.min(120, 20 + Math.floor(player.score / 60));
                     io.emit('chatMessage', { username: 'System', message: `🍽️ ${player.username} ate ${bot.username}! +${gain}`, isSystem: true });
-                    delete bots[bot.id];
+                    delete bots[botId];
                     generateBot();
                     updateLeaderboard();
                     break;
@@ -256,31 +213,16 @@ function checkBotCollisions() {
             }
         }
     }
-}
-
-// Start optimized intervals
-setInterval(() => {
-    updateBots();
-}, BOT_MOVE_INTERVAL);
-
-setInterval(() => {
-    checkBotCollisions();
 }, 100);
 
 io.on('connection', (socket) => {
-    console.log(`[CONNECT] ${socket.id} from ${socket.handshake.address}`);
-    
-    // Send initial data immediately
-    socket.emit('currentOrbs', orbs);
-    socket.emit('currentPlayers', players);
-    socket.emit('currentBots', bots);
+    console.log(`Player connected: ${socket.id}`);
 
     socket.on('joinGame', (data) => {
         const username = data.username;
         const password = data.password || '';
         const isAdmin = (username === ADMIN_NAME && password === ADMIN_PASSWORD);
         
-        // Quick duplicate check
         for (let id in players) {
             if (players[id].username === username) {
                 socket.emit('nameRejected', 'Username already taken!');
@@ -298,11 +240,14 @@ io.on('connection', (socket) => {
             isAdmin: isAdmin
         };
         
+        socket.emit('currentOrbs', orbs);
+        socket.emit('currentPlayers', players);
+        socket.emit('currentBots', bots);
         socket.emit('adminConfirm', isAdmin);
         socket.broadcast.emit('newPlayer', players[socket.id]);
         updateLeaderboard();
         
-        console.log(`[JOIN] ${username} (Admin: ${isAdmin})`);
+        console.log(`${username} joined (Admin: ${isAdmin})`);
     });
     
     socket.on('playerMovement', (data) => {
@@ -318,7 +263,6 @@ io.on('connection', (socket) => {
         const player = players[socket.id];
         if (!player) return;
         
-        // Fast orb lookup
         for (let i = 0; i < orbs.length; i++) {
             if (orbs[i].id === orbId) {
                 const orb = orbs[i];
@@ -337,7 +281,6 @@ io.on('connection', (socket) => {
                 return;
             }
         }
-        // Orb not found
         socket.emit('orbCollectionFailed', orbId);
     });
     
@@ -413,7 +356,7 @@ io.on('connection', (socket) => {
                     socket.emit('chatMessage', { username: 'System', message: `${Object.keys(bots).length} bots active`, isSystem: true });
                     break;
                 default:
-                    socket.emit('chatMessage', { username: 'System', message: `Unknown command. Type /help`, isSystem: true });
+                    socket.emit('chatMessage', { username: 'System', message: 'Type /help for commands', isSystem: true });
             }
         } else {
             io.emit('chatMessage', {
@@ -430,18 +373,12 @@ io.on('connection', (socket) => {
             io.emit('playerDisconnected', socket.id);
             delete players[socket.id];
             updateLeaderboard();
-            console.log(`[DISCONNECT] ${socket.id}`);
+            console.log('Player disconnected:', socket.id);
         }
     });
 });
 
 function updateLeaderboard() {
-    const now = Date.now();
-    if (now - lastLeaderboardUpdate < LEADERBOARD_CACHE_MS && cachedLeaderboard.length > 0) {
-        io.emit('leaderboardUpdate', cachedLeaderboard);
-        return;
-    }
-    
     const list = [];
     for (const id in players) {
         list.push({
@@ -458,23 +395,14 @@ function updateLeaderboard() {
         });
     }
     list.sort((a, b) => b.score - a.score);
-    cachedLeaderboard = list.slice(0, 10);
-    lastLeaderboardUpdate = now;
-    io.emit('leaderboardUpdate', cachedLeaderboard);
+    io.emit('leaderboardUpdate', list.slice(0, 10));
 }
 
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, '0.0.0.0', () => {
-    console.log(`\n✅ RYZZ.io HIGH PERFORMANCE server running!`);
-    console.log(`📡 Port: ${PORT}`);
+    console.log(`\n✅ RYZZ.io server running on port ${PORT}`);
     console.log(`🗺️ Map: ${MAP_WIDTH}x${MAP_HEIGHT}`);
     console.log(`🤖 Bots: ${Object.keys(bots).length}`);
     console.log(`🟡 Orbs: ${orbs.length}`);
-    console.log(`👑 Admin: ${ADMIN_NAME}`);
-    console.log(`\n⚡ Performance optimizations enabled:`);
-    console.log(`   • WebSocket first transport`);
-    console.log(`   • Leaderboard caching (${LEADERBOARD_CACHE_MS}ms)`);
-    console.log(`   • Optimized bot AI (${BOT_MOVE_INTERVAL}ms interval)`);
-    console.log(`   • Static file caching (1d max age)`);
-    console.log(`   • Increased timeouts for slow connections\n`);
+    console.log(`👑 Admin: ${ADMIN_NAME}\n`);
 });
