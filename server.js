@@ -22,13 +22,19 @@ const ADMIN_PASSWORD = 'ryzzking2024';
 let players = {};
 let bots = {};
 
-// DYNAMIC MAP SIZE - Expands as players grow
 let MAP_WIDTH = 4000;
 let MAP_HEIGHT = 4000;
-const MAX_MAP_SIZE = 20000; // Max map size (20x larger than start)
+const MAX_MAP_SIZE = 20000;
 const MIN_MAP_SIZE = 4000;
 
-// Calculate map size based on highest player score
+let orbs = [];
+
+// 🎯 NEW HIGHER ORB VALUES
+const orbColors = ['#fbbf24', '#22c55e', '#3b82f6', '#a855f7'];
+const orbValues = [100, 200, 350, 500];  // Was 10, 25, 50, 100
+
+const botNames = ['Alpha', 'Beta', 'Gamma', 'Delta', 'Echo', 'Zeta', 'Theta', 'Sigma', 'Omega', 'Nova', 'Rex', 'Luna', 'Orion', 'Atlas'];
+
 function updateMapSize() {
     let highestScore = 0;
     for (const id in players) {
@@ -42,23 +48,14 @@ function updateMapSize() {
         }
     }
     
-    // Map size grows with highest score: 4000 + (score / 10), max 20000
-    let newSize = Math.min(MAX_MAP_SIZE, MIN_MAP_SIZE + Math.floor(highestScore / 10));
+    let newSize = Math.min(MAX_MAP_SIZE, MIN_MAP_SIZE + Math.floor(highestScore / 100));
     if (newSize !== MAP_WIDTH) {
         MAP_WIDTH = newSize;
         MAP_HEIGHT = newSize;
-        console.log(`🗺️ Map expanded to ${MAP_WIDTH}x${MAP_HEIGHT} (highest score: ${highestScore})`);
-        
-        // Notify all players of new map size
+        console.log(`🗺️ Map expanded to ${MAP_WIDTH}x${MAP_HEIGHT}`);
         io.emit('mapSizeUpdate', { width: MAP_WIDTH, height: MAP_HEIGHT });
     }
 }
-
-let orbs = [];
-
-const botNames = ['Alpha', 'Beta', 'Gamma', 'Delta', 'Echo', 'Zeta', 'Theta', 'Sigma', 'Omega', 'Nova', 'Rex', 'Luna', 'Orion', 'Atlas'];
-const orbColors = ['#fbbf24', '#22c55e', '#3b82f6', '#a855f7'];
-const orbValues = [10, 25, 50, 100];
 
 function generateOrbs(count) {
     for (let i = 0; i < count; i++) {
@@ -84,26 +81,26 @@ function generateBot() {
         x: Math.random() * MAP_WIDTH,
         y: Math.random() * MAP_HEIGHT,
         radius: 18,
-        score: 50,
+        score: 500,  // Bots start with higher score
         isBot: true
     };
 }
 
-// Initialize orbs and bots
+// Initialize
 generateOrbs(600);
 for (let i = 0; i < 12; i++) {
     generateBot();
 }
 
-// Check map size every second
 setInterval(() => {
     updateMapSize();
 }, 1000);
 
-// Instant orb respawn
+// Orb respawn
 setInterval(() => {
     if (orbs.length < 500) {
         generateOrbs(80);
+        console.log(`Low on orbs (${orbs.length}), generated 80 more`);
     } else {
         generateOrbs(25);
     }
@@ -117,7 +114,7 @@ setInterval(() => {
     }
 }, 10000);
 
-// Bot AI movement - FAST
+// Bot AI movement
 setInterval(() => {
     for (const id in bots) {
         const bot = bots[id];
@@ -194,7 +191,7 @@ setInterval(() => {
             const dy = bot.y - orb.y;
             if (dx * dx + dy * dy < (bot.radius + orb.radius) ** 2) {
                 bot.score += orb.value;
-                bot.radius = Math.min(100, 18 + Math.floor(bot.score / 70));
+                bot.radius = Math.min(100, 18 + Math.floor(bot.score / 500));
                 orbs.splice(i, 1);
                 i--;
             }
@@ -216,20 +213,20 @@ setInterval(() => {
             
             if (distSq < radiusSum * radiusSum) {
                 if (bot.radius > player.radius && !player.isAdmin) {
-                    const gain = Math.floor(player.score / 3) + 60;
+                    const gain = Math.floor(player.score / 3) + 200;
                     bot.score += gain;
-                    bot.radius = Math.min(100, 18 + Math.floor(bot.score / 70));
-                    player.score = Math.max(0, Math.floor(player.score / 2) - 20);
-                    player.radius = Math.max(20, 20 + Math.floor(player.score / 60));
+                    bot.radius = Math.min(100, 18 + Math.floor(bot.score / 500));
+                    player.score = Math.max(0, Math.floor(player.score / 2) - 100);
+                    player.radius = Math.max(20, 20 + Math.floor(player.score / 500));
                     player.x = Math.random() * MAP_WIDTH;
                     player.y = Math.random() * MAP_HEIGHT;
                     io.emit('playerMoved', player);
                     io.emit('chatMessage', { username: 'System', message: `🤖 ${bot.username} ate ${player.username}!`, isSystem: true });
                     updateLeaderboard();
                 } else if (player.radius > bot.radius) {
-                    const gain = Math.floor(bot.score / 2) + 50;
+                    const gain = Math.floor(bot.score / 2) + 200;
                     player.score += gain;
-                    player.radius = Math.min(120, 20 + Math.floor(player.score / 60));
+                    player.radius = Math.min(120, 20 + Math.floor(player.score / 500));
                     io.emit('chatMessage', { username: 'System', message: `🍽️ ${player.username} ate ${bot.username}! +${gain}`, isSystem: true });
                     delete bots[botId];
                     generateBot();
@@ -296,7 +293,7 @@ io.on('connection', (socket) => {
                 orbs.splice(i, 1);
                 
                 player.score += orb.value;
-                player.radius = Math.min(120, 20 + Math.floor(player.score / 60));
+                player.radius = Math.min(120, 20 + Math.floor(player.score / 500));
                 
                 updateLeaderboard();
                 io.emit('scoreUpdate', {
@@ -317,12 +314,12 @@ io.on('connection', (socket) => {
         if (!eater || !target) return;
         
         if (eater.radius > target.radius && !target.isAdmin) {
-            const gain = Math.floor(target.score / 2) + 50;
+            const gain = Math.floor(target.score / 2) + 200;
             eater.score += gain;
-            eater.radius = Math.min(120, 20 + Math.floor(eater.score / 60));
+            eater.radius = Math.min(120, 20 + Math.floor(eater.score / 500));
             
             target.score = Math.max(0, Math.floor(target.score / 3));
-            target.radius = Math.max(20, 20 + Math.floor(target.score / 60));
+            target.radius = Math.max(20, 20 + Math.floor(target.score / 500));
             target.x = Math.random() * MAP_WIDTH;
             target.y = Math.random() * MAP_HEIGHT;
             
@@ -430,10 +427,9 @@ function updateLeaderboard() {
 
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, '0.0.0.0', () => {
-    console.log(`\n✅ RYZZ.io INFINITE MAP server running!`);
-    console.log(`🗺️ Dynamic map: ${MAP_WIDTH}x${MAP_HEIGHT} (grows with scores)`);
-    console.log(`🔍 Infinite zoom available!`);
+    console.log(`\n✅ RYZZ.io HIGH VALUE server running!`);
+    console.log(`💎 Orb values: 100, 200, 350, 500`);
+    console.log(`🗺️ Map: ${MAP_WIDTH}x${MAP_HEIGHT}`);
     console.log(`🤖 Bots: ${Object.keys(bots).length}`);
-    console.log(`🟡 Orbs: ${orbs.length}`);
-    console.log(`👑 Admin: ${ADMIN_NAME}\n`);
+    console.log(`🟡 Orbs: ${orbs.length}\n`);
 });
