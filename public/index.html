@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>RYZZ.io - Admin Panel</title>
+    <title>RYZZ.io - Infinite Growth</title>
     <style>
         * {
             margin: 0;
@@ -226,7 +226,6 @@
             text-shadow: 0 0 3px #ffffff, 0 0 6px #fbbf24;
         }
         
-        /* ADMIN PANEL BUTTONS */
         #adminPanel {
             position: absolute;
             top: 80px;
@@ -305,7 +304,6 @@
     <div id="gameContainer">
         <canvas id="gameCanvas" width="1200" height="800"></canvas>
         
-        <!-- ADMIN PANEL -->
         <div id="adminPanel" class="hidden">
             <h4>👑 ADMIN PANEL</h4>
             <div class="admin-btn-group">
@@ -361,14 +359,14 @@
         <div id="chatOverlay">
             <div id="chatMessages">
                 <div class="chat-system">🔔 Welcome! WASD or Arrow keys to move. Mouse to aim.</div>
-                <div class="chat-system">👑 Admin RYZZ has special buttons on the right!</div>
+                <div class="chat-system">📈 Infinite levels & perks! Grow forever!</div>
             </div>
             <div id="chatInputArea">
                 <input type="text" id="chatInput" placeholder="Type a message... /help for commands" maxlength="100" autocomplete="off">
                 <button id="chatSend">Send</button>
             </div>
         </div>
-        <div class="controls-hint">⬆️ WASD / Arrow Keys | 🖱️ Mouse | Scroll to zoom | 👑 Admin Panel (right)</div>
+        <div class="controls-hint">⬆️ WASD / Arrow Keys | 🖱️ Mouse | Scroll to zoom | 👑 Admin Panel</div>
     </div>
 </div>
 
@@ -460,18 +458,26 @@
     }
     
     function getCellColor(level) {
-        if (level >= 20) return 'rainbow';
-        if (level >= 15) return '#a855f7';
-        if (level >= 10) return '#f97316';
-        if (level >= 7) return '#fbbf24';
-        if (level >= 4) return '#60a5fa';
+        if (level >= 5000) return 'rainbow_fast';
+        if (level >= 2000) return 'rainbow';
+        if (level >= 1000) return '#ff00ff';
+        if (level >= 500) return '#00ffff';
+        if (level >= 300) return '#ff6600';
+        if (level >= 200) return '#ff0000';
+        if (level >= 150) return '#ff00ff';
+        if (level >= 100) return '#ffd700';
+        if (level >= 75) return '#ff6600';
+        if (level >= 50) return '#ff4444';
+        if (level >= 25) return '#ff8888';
+        if (level >= 10) return '#fbbf24';
+        if (level >= 5) return '#60a5fa';
         return '#3b82f6';
     }
     
     function updateSizeDisplay(radius) {
         currentSize = Math.floor(radius);
         sizeElement.innerText = currentSize;
-        const percent = Math.min(100, (radius / 120) * 100);
+        let percent = Math.min(100, (radius / 500) * 100);
         sizeBar.style.width = `${percent}%`;
     }
     
@@ -605,7 +611,7 @@
         
         document.getElementById('adminMaxSizeBtn')?.addEventListener('click', () => {
             socket.emit('adminMaxSize');
-            addChatMessage('System', `💪 Admin set you to MAX SIZE!`, false, true);
+            addChatMessage('System', `💪 Admin set to max size!`, false, true);
         });
         
         document.getElementById('adminSpawnOrbsBtn')?.addEventListener('click', () => {
@@ -1042,7 +1048,7 @@
         ctx.arc(myScreenX, myScreenY, myRadius, 0, Math.PI * 2);
         
         const myColor = getCellColor(currentLevel);
-        if (myColor === 'rainbow') {
+        if (myColor === 'rainbow' || myColor === 'rainbow_fast') {
             const gradient = ctx.createLinearGradient(myScreenX - myRadius, myScreenY - myRadius, myScreenX + myRadius, myScreenY + myRadius);
             gradient.addColorStop(0, '#ff0000');
             gradient.addColorStop(0.2, '#ffff00');
