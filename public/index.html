@@ -51,6 +51,11 @@
             color: #ef4444;
             margin-top: 10px;
         }
+        #gameWrapper {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
         canvas {
             border: 2px solid #1f2937;
             display: block;
@@ -63,6 +68,7 @@
             justify-content: space-between;
             gap: 15px;
             flex-wrap: wrap;
+            width: 100%;
         }
         .stats, #leaderboard {
             background: #1f2937;
@@ -105,10 +111,12 @@
             min-width: 45px;
             text-align: center;
         }
+        /* CHAT - VISIBLE AT BOTTOM */
         #chatContainer {
-            margin-top: 10px;
+            margin-top: 12px;
             background: #1f2937;
             border-radius: 8px;
+            width: 100%;
         }
         #chatMessages {
             height: 100px;
@@ -117,6 +125,12 @@
             border-radius: 8px 8px 0 0;
             padding: 8px;
             font-size: 12px;
+            color: #ccc;
+            border-bottom: 1px solid #374151;
+        }
+        #chatMessages div {
+            margin-bottom: 4px;
+            word-wrap: break-word;
         }
         #chatInputArea {
             display: flex;
@@ -128,21 +142,37 @@
             background: #111827;
             border: 1px solid #374151;
             color: white;
-            padding: 6px 10px;
+            padding: 8px 12px;
             border-radius: 6px;
             outline: none;
+            font-size: 14px;
+        }
+        #chatInput:focus {
+            border-color: #fbbf24;
         }
         #chatSend {
             background: #3b82f6;
             border: none;
             color: white;
-            padding: 6px 15px;
+            padding: 8px 20px;
             border-radius: 6px;
             cursor: pointer;
+            font-weight: bold;
         }
-        .chat-admin { color: #fbbf24; font-weight: bold; }
-        .chat-system { color: #ef4444; font-style: italic; }
-        .hidden { display: none; }
+        #chatSend:hover {
+            background: #2563eb;
+        }
+        .chat-admin {
+            color: #fbbf24;
+            font-weight: bold;
+        }
+        .chat-system {
+            color: #ef4444;
+            font-style: italic;
+        }
+        .hidden {
+            display: none;
+        }
         .score-pop {
             position: absolute;
             font-weight: bold;
@@ -167,7 +197,7 @@
 </div>
 
 <div id="gameScreen" class="hidden">
-    <div id="gameContainer">
+    <div id="gameWrapper">
         <canvas id="gameCanvas" width="1200" height="800"></canvas>
         <div id="ui">
             <div class="stats">🎯 Score: <span id="scoreValue">0</span></div>
@@ -184,10 +214,13 @@
                 <div id="leaderboardList"></div>
             </div>
         </div>
+        <!-- CHAT SECTION - VISIBLE AT BOTTOM -->
         <div id="chatContainer">
-            <div id="chatMessages"></div>
+            <div id="chatMessages">
+                <div class="chat-system">🔔 Welcome! Type a message to chat.</div>
+            </div>
             <div id="chatInputArea">
-                <input type="text" id="chatInput" placeholder="Type a message..." maxlength="100">
+                <input type="text" id="chatInput" placeholder="Type a message..." maxlength="100" autocomplete="off">
                 <button id="chatSend">Send</button>
             </div>
         </div>
@@ -196,7 +229,11 @@
 
 <script src="/socket.io/socket.io.js"></script>
 <script>
-    const socket = io();
+    const socket = io({
+        reconnection: true,
+        reconnectionAttempts: 5,
+        reconnectionDelay: 1000
+    });
     
     const canvas = document.getElementById('gameCanvas');
     const ctx = canvas.getContext('2d');
@@ -216,7 +253,6 @@
     const MAP_WIDTH = 4000;
     const MAP_HEIGHT = 4000;
     
-    // Track orbs being collected to prevent double-sends
     let collectingOrbIds = new Set();
     
     // DOM elements
@@ -234,13 +270,13 @@
     const adminNameSpan = document.getElementById('adminName');
     const zoomLevelSpan = document.getElementById('zoomLevel');
     
-    // Visual effect for score popup
     function showScorePopup(x, y, points) {
+        const rect = canvas.getBoundingClientRect();
         const div = document.createElement('div');
         div.className = 'score-pop';
         div.innerText = `+${points}`;
-        div.style.left = `${x}px`;
-        div.style.top = `${y}px`;
+        div.style.left = `${rect.left + x}px`;
+        div.style.top = `${rect.top + y}px`;
         div.style.color = '#fbbf24';
         div.style.fontWeight = 'bold';
         div.style.fontSize = '20px';
@@ -320,8 +356,7 @@
         gameLoop();
     };
     
-    // ========== SOCKET EVENTS ==========
-    
+    // Socket events
     socket.on('currentPlayers', (serverPlayers) => {
         players = serverPlayers;
         for (let id in players) {
@@ -338,32 +373,24 @@
     
     socket.on('currentBots', (serverBots) => {
         for (const id in serverBots) {
-            players[id] = {
-                ...serverBots[id],
-                isBot: true
-            };
+            players[id] = { ...serverBots[id], isBot: true };
         }
     });
     
     socket.on('updateBots', (serverBots) => {
-        // Remove old bots
         for (const id in players) {
             if (players[id].isBot && !serverBots[id]) {
                 delete players[id];
             }
         }
-        // Add/update bots
         for (const id in serverBots) {
-            players[id] = {
-                ...serverBots[id],
-                isBot: true
-            };
+            players[id] = { ...serverBots[id], isBot: true };
         }
     });
     
     socket.on('currentOrbs', (serverOrbs) => {
         orbs = serverOrbs;
-        collectingOrbIds.clear(); // Reset tracking on new orb list
+        collectingOrbIds.clear();
     });
     
     socket.on('newPlayer', (playerData) => {
@@ -401,7 +428,6 @@
             players[data.id].radius = data.radius;
         }
         if (data.id === myId) {
-            // Only update if server score is higher (in case we predicted)
             if (data.score > currentScore) {
                 currentScore = data.score;
                 scoreElement.innerText = currentScore;
@@ -420,7 +446,6 @@
     
     socket.on('orbCollectionFailed', (orbId) => {
         collectingOrbIds.delete(orbId);
-        console.log(`Orb collection failed for ${orbId}`);
     });
     
     socket.on('chatMessage', (data) => {
@@ -440,7 +465,10 @@
         window.location.reload();
     });
     
-    // ========== GAME MECHANICS ==========
+    socket.on('kicked', (msg) => {
+        alert(msg);
+        window.location.reload();
+    });
     
     canvas.addEventListener('mousemove', (e) => {
         if (!myPlayer) return;
@@ -474,42 +502,26 @@
     function checkCollisions() {
         if (!myPlayer) return;
         
-        // Orb collisions with client-side prediction
         for (let i = 0; i < orbs.length; i++) {
             const orb = orbs[i];
-            
-            // Skip if already trying to collect this orb
             if (collectingOrbIds.has(orb.id)) continue;
             
             const dist = Math.hypot(myPlayer.x - orb.x, myPlayer.y - orb.y);
             if (dist < myPlayer.radius + orb.radius) {
-                // Mark as collecting
                 collectingOrbIds.add(orb.id);
-                
-                // Send to server
                 socket.emit('collectOrb', orb.id);
-                
-                // CLIENT-SIDE PREDICTION: Remove orb immediately
                 orbs.splice(i, 1);
-                
-                // Add score locally for instant feedback
-                const points = orb.value;
-                currentScore += points;
+                currentScore += orb.value;
                 scoreElement.innerText = currentScore;
                 if (myPlayer) myPlayer.score = currentScore;
                 
-                // Visual feedback
-                const rect = canvas.getBoundingClientRect();
-                const screenX = (orb.x - cameraX) * zoom + rect.left;
-                const screenY = (orb.y - cameraY) * zoom + rect.top;
-                showScorePopup(screenX, screenY, points);
-                
-                console.log(`🎯 Collected +${points}! Total: ${currentScore}`);
+                const screenX = (orb.x - cameraX) * zoom;
+                const screenY = (orb.y - cameraY) * zoom;
+                showScorePopup(screenX, screenY, orb.value);
                 break;
             }
         }
         
-        // Player collisions (for eating other players)
         for (const id in players) {
             if (id === myId) continue;
             const other = players[id];
@@ -584,15 +596,10 @@
                 ctx.arc(screenX, screenY, radius, 0, Math.PI * 2);
                 ctx.fillStyle = orb.color;
                 ctx.fill();
-                // Add a little shine
-                ctx.beginPath();
-                ctx.arc(screenX - radius * 0.3, screenY - radius * 0.3, radius * 0.2, 0, Math.PI * 2);
-                ctx.fillStyle = 'rgba(255,255,255,0.5)';
-                ctx.fill();
             }
         }
         
-        // Draw all players (including bots)
+        // Draw players
         for (const id in players) {
             if (id === myId) continue;
             const p = players[id];
