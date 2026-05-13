@@ -1,11 +1,14 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>RYZZ.io - Mobile Ready</title>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>RYZZ.io - Multiplayer Arena</title>
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; user-select: none; -webkit-tap-highlight-color: transparent; }
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            user-select: none;
+        }
         body {
             background: #0a0f1e;
             display: flex;
@@ -14,69 +17,184 @@
             min-height: 100vh;
             font-family: Arial, sans-serif;
             overflow: hidden;
-            touch-action: none;
         }
         #joinScreen, #gameScreen {
             background: #111827;
             padding: 30px;
             border-radius: 16px;
             text-align: center;
-            max-width: 90vw;
         }
-        #joinScreen h1 { color: #fbbf24; margin-bottom: 20px; }
+        #joinScreen h1 {
+            color: #fbbf24;
+            margin-bottom: 20px;
+        }
         #joinScreen input {
-            background: #1f2937; border: 1px solid #374151; color: white;
-            padding: 12px 20px; border-radius: 8px; font-size: 16px;
-            width: 250px; margin-bottom: 10px;
+            background: #1f2937;
+            border: 1px solid #374151;
+            color: white;
+            padding: 12px 20px;
+            border-radius: 8px;
+            font-size: 16px;
+            width: 250px;
+            margin-bottom: 10px;
         }
         #joinScreen button {
-            background: #3b82f6; border: none; color: white;
-            padding: 12px 30px; border-radius: 8px; font-size: 16px; cursor: pointer;
+            background: #3b82f6;
+            border: none;
+            color: white;
+            padding: 12px 30px;
+            border-radius: 8px;
+            font-size: 16px;
+            cursor: pointer;
         }
-        #errorMsg { color: #ef4444; margin-top: 10px; }
-        #gameContainer { position: relative; display: inline-block; width: 100vw; height: 100vh; }
-        canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: block; touch-action: none; }
+        #errorMsg {
+            color: #ef4444;
+            margin-top: 10px;
+        }
+        #gameContainer {
+            position: relative;
+            display: inline-block;
+        }
+        canvas {
+            border: 2px solid #1f2937;
+            display: block;
+            border-radius: 8px;
+            cursor: crosshair;
+        }
         #ui {
-            position: absolute; top: 10px; left: 10px; right: 10px;
-            display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap;
-            z-index: 10; pointer-events: none;
-            font-size: 10px;
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            right: 10px;
+            display: flex;
+            justify-content: space-between;
+            gap: 10px;
+            flex-wrap: wrap;
+            z-index: 10;
+            pointer-events: none;
         }
         .stats, #leaderboard, #zoomControl {
-            pointer-events: auto; background: rgba(0,0,0,0.7); backdrop-filter: blur(5px);
-            padding: 4px 8px; border-radius: 6px; color: white; border: 1px solid #374151;
+            pointer-events: auto;
+            background: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(5px);
+            padding: 6px 12px;
+            border-radius: 8px;
+            color: white;
+            font-size: 12px;
+            border: 1px solid #374151;
         }
-        #leaderboard { min-width: 130px; }
-        #leaderboard h4 { font-size: 10px; margin-bottom: 2px; color: #fbbf24; }
-        #leaderboardList { font-size: 9px; max-height: 80px; overflow-y: auto; }
-        #zoomControl button { background: #3b82f6; padding: 2px 6px; font-size: 10px; }
-        #sizeBarContainer { width: 50px; height: 4px; background: #374151; border-radius: 3px; display: inline-block; margin-left: 4px; }
-        #sizeBar { height: 100%; width: 0%; background: linear-gradient(90deg,#3b82f6,#fbbf24); border-radius: 3px; }
+        .stats span {
+            color: #fbbf24;
+            font-weight: bold;
+        }
+        #leaderboard {
+            min-width: 180px;
+        }
+        #leaderboard h4 {
+            margin-bottom: 4px;
+            color: #fbbf24;
+            font-size: 12px;
+        }
+        #leaderboardList {
+            max-height: 100px;
+            overflow-y: auto;
+            font-size: 11px;
+        }
+        #zoomControl button {
+            background: #3b82f6;
+            border: none;
+            color: white;
+            padding: 2px 8px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            pointer-events: auto;
+        }
+        #zoomLevel {
+            font-size: 11px;
+            min-width: 35px;
+            text-align: center;
+        }
+        #sizeBarContainer {
+            width: 80px;
+            height: 6px;
+            background: #374151;
+            border-radius: 3px;
+            overflow: hidden;
+            display: inline-block;
+            margin-left: 6px;
+        }
+        #sizeBar {
+            height: 100%;
+            width: 0%;
+            background: linear-gradient(90deg, #3b82f6, #fbbf24);
+            border-radius: 3px;
+            transition: width 0.1s ease;
+        }
         #chatOverlay {
-            position: absolute; bottom: 10px; left: 10px; right: 10px;
-            background: rgba(0,0,0,0.85); border-radius: 8px; backdrop-filter: blur(5px);
-            border: 1px solid #374151; z-index: 10;
+            position: absolute;
+            bottom: 10px;
+            left: 10px;
+            width: 280px;
+            background: rgba(0, 0, 0, 0.85);
+            border-radius: 8px;
+            backdrop-filter: blur(5px);
+            border: 1px solid #374151;
+            z-index: 10;
         }
-        #chatMessages { height: 80px; overflow-y: auto; padding: 5px; font-size: 10px; color: #ccc; }
-        #chatInputArea { display: flex; padding: 5px; gap: 5px; border-top: 1px solid #374151; }
-        #chatInput { flex:1; background:#1f2937; border:1px solid #374151; color:white; padding:5px 8px; border-radius:6px; font-size:10px; }
-        #chatSend { background:#3b82f6; border:none; color:white; padding:5px 10px; border-radius:6px; cursor:pointer; font-size:10px; }
-        .chat-admin { color:#fbbf24; font-weight:bold; }
-        .chat-system { color:#ef4444; font-style:italic; }
+        #chatMessages {
+            height: 100px;
+            overflow-y: auto;
+            padding: 6px;
+            font-size: 11px;
+            color: #ccc;
+        }
+        #chatMessages div {
+            margin-bottom: 3px;
+            word-wrap: break-word;
+        }
+        #chatInputArea {
+            display: flex;
+            padding: 5px;
+            gap: 5px;
+            border-top: 1px solid #374151;
+        }
+        #chatInput {
+            flex: 1;
+            background: #1f2937;
+            border: 1px solid #374151;
+            color: white;
+            padding: 5px 8px;
+            border-radius: 6px;
+            outline: none;
+            font-size: 11px;
+        }
+        #chatInput:focus {
+            border-color: #fbbf24;
+        }
+        #chatSend {
+            background: #3b82f6;
+            border: none;
+            color: white;
+            padding: 5px 10px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 11px;
+        }
+        .chat-admin { color: #fbbf24; font-weight: bold; }
+        .chat-system { color: #ef4444; font-style: italic; }
         .hidden { display: none; }
         .controls-hint {
-            position: absolute; bottom: 10px; right: 10px;
-            background: rgba(0,0,0,0.5); padding: 3px 6px; border-radius: 4px;
-            font-size: 8px; color: #888; pointer-events: none; z-index: 10;
+            position: absolute;
+            bottom: 10px;
+            right: 10px;
+            background: rgba(0,0,0,0.5);
+            padding: 4px 8px;
+            border-radius: 6px;
+            font-size: 10px;
+            color: #888;
+            pointer-events: none;
         }
-        /* Loading spinner */
-        #loadingSpinner {
-            position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
-            background: rgba(0,0,0,0.8); padding: 20px; border-radius: 12px;
-            color: white; z-index: 1000; display: none; text-align: center;
-        }
-        .spinner { width: 40px; height: 40px; border: 4px solid #374151; border-top-color: #fbbf24; border-radius: 50%; animation: spin 1s linear infinite; margin-bottom: 10px; }
-        @keyframes spin { to { transform: rotate(360deg); } }
     </style>
 </head>
 <body>
@@ -91,58 +209,78 @@
 
 <div id="gameScreen" class="hidden">
     <div id="gameContainer">
-        <canvas id="gameCanvas"></canvas>
+        <canvas id="gameCanvas" width="1200" height="800"></canvas>
+        
         <div id="ui">
-            <div class="stats">🎯 <span id="scoreValue">0</span></div>
-            <div class="stats">📏 <span id="sizeValue">20</span><div id="sizeBarContainer"><div id="sizeBar"></div></div></div>
-            <div class="stats">Lvl <span id="levelValue">1</span></div>
+            <div class="stats">🎯 Score: <span id="scoreValue">0</span></div>
+            <div class="stats">📏 Size: <span id="sizeValue">20</span>
+                <div id="sizeBarContainer"><div id="sizeBar"></div></div>
+            </div>
+            <div class="stats">🎯 Lvl: <span id="levelValue">1</span> <span id="levelTitle"></span></div>
             <div class="stats">⚡ <span id="perksValue">0%</span></div>
-            <div id="zoomControl"><button id="zoomOutBtn">-</button><span id="zoomLevel">100%</span><button id="zoomInBtn">+</button></div>
-            <div id="leaderboard"><h4>🏆 TOP</h4><div id="leaderboardList"></div></div>
+            <div class="stats">👑 Admin: <span id="adminName"></span></div>
+            <div id="zoomControl">
+                <span>🔍</span>
+                <button id="zoomOutBtn">-</button>
+                <span id="zoomLevel">100%</span>
+                <button id="zoomInBtn">+</button>
+                <button id="zoomResetBtn">Reset</button>
+            </div>
+            <div id="leaderboard">
+                <h4>🏆 LEADERBOARD</h4>
+                <div id="leaderboardList"></div>
+            </div>
         </div>
+        
         <div id="chatOverlay">
-            <div id="chatMessages"><div class="chat-system">🔔 Connecting...</div></div>
-            <div id="chatInputArea"><input type="text" id="chatInput" placeholder="Message..." maxlength="100" autocomplete="off"><button id="chatSend">Send</button></div>
+            <div id="chatMessages">
+                <div class="chat-system">🔔 Welcome! WASD or Arrow keys to move. Mouse to aim.</div>
+            </div>
+            <div id="chatInputArea">
+                <input type="text" id="chatInput" placeholder="Type a message..." maxlength="100" autocomplete="off">
+                <button id="chatSend">Send</button>
+            </div>
         </div>
-        <div class="controls-hint">👆 Touch to move | 🔍 Pinch zoom</div>
+        <div class="controls-hint">⬆️ WASD / Arrow Keys | 🖱️ Mouse | Scroll to zoom</div>
     </div>
 </div>
-<div id="loadingSpinner"><div class="spinner"></div><div>Loading game...</div></div>
 
 <script src="/socket.io/socket.io.js"></script>
 <script>
     const socket = io({
         reconnection: true,
         reconnectionAttempts: 5,
-        reconnectionDelay: 1000,
-        timeout: 20000
+        reconnectionDelay: 1000
     });
     
     const canvas = document.getElementById('gameCanvas');
     const ctx = canvas.getContext('2d');
     
-    function resizeCanvas() {
-        const container = document.getElementById('gameContainer');
-        canvas.width = container.clientWidth;
-        canvas.height = container.clientHeight;
-    }
-    window.addEventListener('resize', resizeCanvas);
+    let players = {};
+    let myId = null;
+    let myPlayer = null;
+    let orbs = [];
+    let currentScore = 0;
+    let currentSize = 20;
+    let currentLevel = 1;
+    let currentTitle = '';
+    let currentPerks = { speedMultiplier: 1, sizeMultiplier: 1, scoreMultiplier: 1, eatRangeMultiplier: 1 };
     
-    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-    
-    let players = {}, myId = null, myPlayer = null, orbs = [];
-    let currentScore = 0, currentSize = 20, currentLevel = 1, currentTitle = '', currentPerks = { speedMultiplier:1, sizeMultiplier:1, scoreMultiplier:1, eatRangeMultiplier:1 };
     let cameraX = 0, cameraY = 0;
-    let targetX = null, targetY = null;
-    let useMouse = !isMobile;
+    let moveDirection = { x: 0, y: 0 };
     let mouseX = null, mouseY = null;
+    let useMouse = true;
+    
     let zoom = 1.0;
-    const MIN_ZOOM = 0.3, MAX_ZOOM = 2.0;
-    let MAP_WIDTH = 4000, MAP_HEIGHT = 4000;
+    const MIN_ZOOM = 0.05;
+    const MAX_ZOOM = 3.0;
+    
+    let MAP_WIDTH = 4000;
+    let MAP_HEIGHT = 4000;
+    
     let collectingOrbIds = new Set();
     let lastLevel = 1;
     
-    // DOM elements
     const joinScreen = document.getElementById('joinScreen');
     const gameScreen = document.getElementById('gameScreen');
     const usernameInput = document.getElementById('usernameInput');
@@ -153,310 +291,534 @@
     const sizeElement = document.getElementById('sizeValue');
     const sizeBar = document.getElementById('sizeBar');
     const levelElement = document.getElementById('levelValue');
+    const levelTitleElement = document.getElementById('levelTitle');
     const perksElement = document.getElementById('perksValue');
     const leaderboardList = document.getElementById('leaderboardList');
     const chatMessages = document.getElementById('chatMessages');
     const chatInput = document.getElementById('chatInput');
     const chatSend = document.getElementById('chatSend');
+    const adminNameSpan = document.getElementById('adminName');
     const zoomLevelSpan = document.getElementById('zoomLevel');
-    const loadingSpinner = document.getElementById('loadingSpinner');
     
-    function formatScore(s) {
-        if (s >= 1e9) return (s/1e9).toFixed(1)+'B';
-        if (s >= 1e6) return (s/1e6).toFixed(1)+'M';
-        if (s >= 1e3) return (s/1e3).toFixed(1)+'K';
-        return s.toString();
+    function formatScore(score) {
+        if (score >= 1_000_000_000) return (score / 1_000_000_000).toFixed(1) + 'B';
+        if (score >= 1_000_000) return (score / 1_000_000).toFixed(1) + 'M';
+        if (score >= 1_000) return (score / 1_000).toFixed(1) + 'K';
+        return score.toString();
     }
-    function formatPerks(p) {
-        if(!p) return '0%';
-        let spd = Math.round((p.speedMultiplier-1)*100);
-        let sz = Math.round((p.sizeMultiplier-1)*100);
-        let scr = Math.round((p.scoreMultiplier-1)*100);
-        let rng = Math.round((p.eatRangeMultiplier-1)*100);
-        if(spd===0&&sz===0&&scr===0&&rng===0) return '0%';
-        let parts=[];
-        if(spd>0) parts.push(`⚡+${spd}%`);
-        if(sz>0) parts.push(`💪+${sz}%`);
-        if(scr>0) parts.push(`💰+${scr}%`);
-        if(rng>0) parts.push(`🎯+${rng}%`);
+    
+    function formatPerks(perks) {
+        if (!perks) return '0%';
+        const speed = Math.round((perks.speedMultiplier - 1) * 100);
+        const size = Math.round((perks.sizeMultiplier - 1) * 100);
+        const score = Math.round((perks.scoreMultiplier - 1) * 100);
+        const range = Math.round((perks.eatRangeMultiplier - 1) * 100);
+        if (speed === 0 && size === 0 && score === 0 && range === 0) return '0%';
+        let parts = [];
+        if (speed > 0) parts.push(`⚡+${speed}%`);
+        if (size > 0) parts.push(`💪+${size}%`);
+        if (score > 0) parts.push(`💰+${score}%`);
+        if (range > 0) parts.push(`🎯+${range}%`);
         return parts.join(' ');
     }
-    function getCellColor(lvl){
-        if(lvl>=20) return 'rainbow';
-        if(lvl>=15) return '#a855f7';
-        if(lvl>=10) return '#f97316';
-        if(lvl>=7) return '#fbbf24';
-        if(lvl>=4) return '#60a5fa';
+    
+    function getCellColor(level) {
+        if (level >= 20) return 'rainbow';
+        if (level >= 15) return '#a855f7';
+        if (level >= 10) return '#f97316';
+        if (level >= 7) return '#fbbf24';
+        if (level >= 4) return '#60a5fa';
         return '#3b82f6';
     }
-    function updateSizeDisplay(r){ sizeElement.innerText = Math.floor(r); sizeBar.style.width = Math.min(100,(r/120)*100)+'%'; }
-    function setZoom(z){ zoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, z)); zoomLevelSpan.innerText = Math.round(zoom*100)+'%'; }
-    document.getElementById('zoomInBtn').onclick = ()=>setZoom(zoom+0.1);
-    document.getElementById('zoomOutBtn').onclick = ()=>setZoom(zoom-0.1);
-    canvas.addEventListener('wheel', e=>{ e.preventDefault(); setZoom(e.deltaY<0 ? zoom+0.1 : zoom-0.1); });
     
-    // Keyboard
-    const keys = { ArrowUp:false, ArrowDown:false, ArrowLeft:false, ArrowRight:false, w:false, s:false, a:false, d:false };
-    window.addEventListener('keydown', e=>{
-        let k=e.key;
-        if(keys.hasOwnProperty(k)){ keys[k]=true; useMouse=false; targetX=null; targetY=null; e.preventDefault(); }
-        if(k==='w') keys.w=true; if(k==='a') keys.a=true; if(k==='s') keys.s=true; if(k==='d') keys.d=true;
-    });
-    window.addEventListener('keyup', e=>{
-        let k=e.key;
-        if(keys.hasOwnProperty(k)) keys[k]=false;
-        if(k==='w') keys.w=false; if(k==='a') keys.a=false; if(k==='s') keys.s=false; if(k==='d') keys.d=false;
-    });
-    function getMoveVector(){
-        let mx=0,my=0;
-        if(keys.ArrowUp||keys.w) my-=1;
-        if(keys.ArrowDown||keys.s) my+=1;
-        if(keys.ArrowLeft||keys.a) mx-=1;
-        if(keys.ArrowRight||keys.d) mx+=1;
-        if(mx!==0||my!==0){ let len=Math.hypot(mx,my); mx/=len; my/=len; }
-        return {x:mx, y:my};
+    function updateSizeDisplay(radius) {
+        currentSize = Math.floor(radius);
+        sizeElement.innerText = currentSize;
+        const percent = Math.min(100, (radius / 120) * 100);
+        sizeBar.style.width = `${percent}%`;
     }
     
-    // Mouse & Touch
-    canvas.addEventListener('mousemove', e=>{
-        if(isMobile) return;
-        useMouse=true; targetX=targetY=null;
-        let rect=canvas.getBoundingClientRect();
-        let sx=canvas.width/rect.width, sy=canvas.height/rect.height;
-        let cx=(e.clientX-rect.left)*sx, cy=(e.clientY-rect.top)*sy;
-        mouseX = (cx/zoom)+cameraX; mouseY = (cy/zoom)+cameraY;
-        mouseX = Math.min(Math.max(mouseX,0),MAP_WIDTH);
-        mouseY = Math.min(Math.max(mouseY,0),MAP_HEIGHT);
-    });
-    function handleTouch(e){
+    function updateZoomDisplay() {
+        zoomLevelSpan.innerText = `${Math.round(zoom * 100)}%`;
+    }
+    
+    function setZoom(newZoom) {
+        zoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, newZoom));
+        updateZoomDisplay();
+    }
+    
+    document.getElementById('zoomInBtn').onclick = () => setZoom(zoom + 0.1);
+    document.getElementById('zoomOutBtn').onclick = () => setZoom(zoom - 0.1);
+    document.getElementById('zoomResetBtn').onclick = () => setZoom(1.0);
+    
+    canvas.addEventListener('wheel', (e) => {
         e.preventDefault();
-        useMouse=false;
-        let rect=canvas.getBoundingClientRect();
-        let touch=e.touches[0];
-        let sx=canvas.width/rect.width, sy=canvas.height/rect.height;
-        let cx=(touch.clientX-rect.left)*sx, cy=(touch.clientY-rect.top)*sy;
-        targetX = (cx/zoom)+cameraX; targetY = (cy/zoom)+cameraY;
-        targetX = Math.min(Math.max(targetX,0),MAP_WIDTH);
-        targetY = Math.min(Math.max(targetY,0),MAP_HEIGHT);
-    }
-    canvas.addEventListener('touchstart', handleTouch);
-    canvas.addEventListener('touchmove', handleTouch);
-    canvas.addEventListener('touchend', e=>{ e.preventDefault(); targetX=targetY=null; });
+        setZoom(e.deltaY < 0 ? zoom + 0.1 : zoom - 0.1);
+    });
     
-    function addChatMessage(sender, msg, isAdmin=false, isSystem=false){
-        let div=document.createElement('div');
-        if(isSystem) div.innerHTML=`<span class="chat-system">🔔 ${msg}</span>`;
-        else if(isAdmin) div.innerHTML=`<span class="chat-admin">👑 ${sender}:</span> ${msg}`;
-        else div.innerHTML=`<span>💬 ${sender}:</span> ${msg}`;
-        chatMessages.appendChild(div);
-        chatMessages.scrollTop=chatMessages.scrollHeight;
-        while(chatMessages.children.length>50) chatMessages.removeChild(chatMessages.firstChild);
-    }
-    function sendMsg(){ let t=chatInput.value.trim(); if(t) socket.emit('chatMessage',{message:t}); chatInput.value=''; chatInput.focus(); }
-    chatSend.onclick=sendMsg; chatInput.addEventListener('keypress',e=>{ if(e.key==='Enter') sendMsg(); });
-    
-    joinBtn.onclick = ()=>{
-        let uname=usernameInput.value.trim();
-        let pwd=passwordInput.value;
-        if(!uname){ errorMsg.innerText='Enter username'; return; }
-        joinScreen.classList.add('hidden');
-        gameScreen.classList.remove('hidden');
-        resizeCanvas();
-        loadingSpinner.style.display='flex';
-        socket.emit('joinGame', { username:uname, password:pwd });
-        setTimeout(()=>{ loadingSpinner.style.display='none'; }, 3000);
-        requestAnimationFrame(function gameLoop(){
-            if(myPlayer){ movePlayer(); checkCollisions(); draw(); }
-            requestAnimationFrame(gameLoop);
-        });
+    const keys = {
+        ArrowUp: false, ArrowDown: false, ArrowLeft: false, ArrowRight: false,
+        w: false, s: false, a: false, d: false
     };
     
-    // Socket events
-    socket.on('currentPlayers', (data)=>{
-        players=data;
-        for(let id in players){
-            if(players[id].username === usernameInput.value.trim()){
-                myId=id; myPlayer=players[id];
-                updateSizeDisplay(myPlayer.radius);
-                currentLevel=myPlayer.level||1;
-                currentTitle=myPlayer.title||'🍼 Newbie';
-                currentPerks=myPlayer.perks||{speedMultiplier:1,sizeMultiplier:1,scoreMultiplier:1,eatRangeMultiplier:1};
-                levelElement.innerText=currentLevel;
-                perksElement.innerHTML=formatPerks(currentPerks);
-                if(myPlayer.isAdmin) addChatMessage('System','You are ADMIN! Type /help',false,true);
-                loadingSpinner.style.display='none';
-            }
+    window.addEventListener('keydown', (e) => {
+        const key = e.key;
+        if (keys.hasOwnProperty(key)) {
+            keys[key] = true;
+            useMouse = false;
+            e.preventDefault();
         }
+        if (key === 'w') keys.w = true;
+        if (key === 'a') keys.a = true;
+        if (key === 's') keys.s = true;
+        if (key === 'd') keys.d = true;
     });
-    socket.on('currentBots', (b)=>{ for(let id in b) players[id]={...b[id],isBot:true}; });
-    socket.on('updateBots', (b)=>{
-        for(let id in players) if(players[id].isBot && !b[id]) delete players[id];
-        for(let id in b) players[id]={...b[id],isBot:true};
-    });
-    socket.on('currentOrbs', (o)=>{ orbs=o; collectingOrbIds.clear(); });
-    socket.on('mapSizeUpdate', (d)=>{ MAP_WIDTH=d.width; MAP_HEIGHT=d.height; });
-    socket.on('newPlayer', (p)=>{ players[p.id]=p; addChatMessage('System',`${p.username} joined!`,false,true); });
-    socket.on('playerMoved', (p)=>{ if(players[p.id]){ players[p.id].x=p.x; players[p.id].y=p.y; } });
-    socket.on('playerDisconnected', (id)=>{ if(players[id]){ addChatMessage('System',`${players[id].username} left`,false,true); delete players[id]; } });
-    socket.on('leaderboardUpdate', (lb)=>{
-        let html='';
-        for(let i=0;i<lb.length;i++){
-            let p=lb[i];
-            let medal=i===0?'🥇':i===1?'🥈':i===2?'🥉':'  ';
-            html+=`<div>${medal} ${p.username} - ${formatScore(p.score)} (Lvl ${p.level})</div>`;
-        }
-        leaderboardList.innerHTML=html;
-    });
-    socket.on('scoreUpdate', (data)=>{
-        if(players[data.id]){ players[data.id].score=data.score; players[data.id].radius=data.radius; players[data.id].level=data.level; players[data.id].perks=data.perks; }
-        if(data.id===myId){
-            if(data.score>currentScore){ currentScore=data.score; scoreElement.innerText=formatScore(currentScore); }
-            if(myPlayer) myPlayer.radius=data.radius;
-            updateSizeDisplay(data.radius);
-            if(data.level!==lastLevel){
-                lastLevel=data.level; currentLevel=data.level; currentPerks=data.perks;
-                levelElement.innerText=data.level; perksElement.innerHTML=formatPerks(data.perks);
-                addChatMessage('System',`🎉 LEVEL UP! ${data.title} (Level ${data.level})!`,false,true);
-            } else if(data.perks){ currentPerks=data.perks; perksElement.innerHTML=formatPerks(data.perks); }
-        }
-    });
-    socket.on('orbCollected', (id)=>{ collectingOrbIds.delete(id); let idx=orbs.findIndex(o=>o.id===id); if(idx!==-1) orbs.splice(idx,1); });
-    socket.on('orbCollectionFailed', (id)=>{ collectingOrbIds.delete(id); });
-    socket.on('chatMessage', (d)=> addChatMessage(d.username,d.message,d.isAdmin));
-    socket.on('adminConfirm', (isAdmin)=>{ if(isAdmin && myPlayer){ myPlayer.isAdmin=true; addChatMessage('System','You are ADMIN!',false,true); } });
-    socket.on('nameRejected', (msg)=>{ alert(msg); window.location.reload(); });
-    socket.on('kicked', (msg)=>{ alert(msg); window.location.reload(); });
-    socket.on('connect_error', (err)=>{ addChatMessage('System','Connection error. Retrying...',false,true); loadingSpinner.style.display='none'; });
     
-    function movePlayer(){
-        if(!myPlayer) return;
-        let tx=myPlayer.x, ty=myPlayer.y;
-        if(useMouse && mouseX!==null && mouseY!==null){ tx=mouseX; ty=mouseY; }
-        else if(targetX!==null && targetY!==null){ tx=targetX; ty=targetY; }
-        else{
-            let mv=getMoveVector();
-            if(mv.x!==0 || mv.y!==0){
-                let spd = Math.min(6, 150/myPlayer.radius) * (currentPerks.speedMultiplier||1);
-                tx = myPlayer.x + mv.x*spd;
-                ty = myPlayer.y + mv.y*spd;
-            }
+    window.addEventListener('keyup', (e) => {
+        const key = e.key;
+        if (keys.hasOwnProperty(key)) keys[key] = false;
+        if (key === 'w') keys.w = false;
+        if (key === 'a') keys.a = false;
+        if (key === 's') keys.s = false;
+        if (key === 'd') keys.d = false;
+    });
+    
+    function getMoveVector() {
+        let moveX = 0, moveY = 0;
+        if (keys.ArrowUp || keys.w) moveY -= 1;
+        if (keys.ArrowDown || keys.s) moveY += 1;
+        if (keys.ArrowLeft || keys.a) moveX -= 1;
+        if (keys.ArrowRight || keys.d) moveX += 1;
+        if (moveX !== 0 || moveY !== 0) {
+            const len = Math.hypot(moveX, moveY);
+            moveX /= len;
+            moveY /= len;
         }
-        let dx=tx-myPlayer.x, dy=ty-myPlayer.y, dist=Math.hypot(dx,dy);
-        if(dist>1){
-            let spd = Math.min(6, 150/myPlayer.radius) * (currentPerks.speedMultiplier||1);
-            myPlayer.x += (dx/dist)*spd;
-            myPlayer.y += (dy/dist)*spd;
-        } else if(targetX!==null || targetY!==null){
-            myPlayer.x=tx; myPlayer.y=ty;
-        }
-        myPlayer.x = Math.min(Math.max(myPlayer.x, myPlayer.radius+5), MAP_WIDTH-myPlayer.radius-5);
-        myPlayer.y = Math.min(Math.max(myPlayer.y, myPlayer.radius+5), MAP_HEIGHT-myPlayer.radius-5);
-        socket.emit('playerMovement', { x:myPlayer.x, y:myPlayer.y });
+        return { x: moveX, y: moveY };
     }
     
-    function checkCollisions(){
-        if(!myPlayer) return;
-        for(let i=0;i<orbs.length;i++){
-            let orb=orbs[i];
-            if(collectingOrbIds.has(orb.id)) continue;
-            if(Math.hypot(myPlayer.x-orb.x, myPlayer.y-orb.y) < myPlayer.radius+orb.radius){
+    canvas.addEventListener('mousemove', (e) => {
+        useMouse = true;
+        const rect = canvas.getBoundingClientRect();
+        const scaleX = canvas.width / rect.width;
+        const scaleY = canvas.height / rect.height;
+        let canvasX = (e.clientX - rect.left) * scaleX;
+        let canvasY = (e.clientY - rect.top) * scaleY;
+        
+        mouseX = (canvasX / zoom) + cameraX;
+        mouseY = (canvasY / zoom) + cameraY;
+        mouseX = Math.min(Math.max(mouseX, 0), MAP_WIDTH);
+        mouseY = Math.min(Math.max(mouseY, 0), MAP_HEIGHT);
+    });
+    
+    function addChatMessage(sender, message, isAdmin = false, isSystem = false) {
+        const div = document.createElement('div');
+        if (isSystem) {
+            div.innerHTML = `<span class="chat-system">🔔 ${message}</span>`;
+        } else if (isAdmin) {
+            div.innerHTML = `<span class="chat-admin">👑 ${sender}:</span> ${message}`;
+        } else {
+            div.innerHTML = `<span>💬 ${sender}:</span> ${message}`;
+        }
+        chatMessages.appendChild(div);
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+        while (chatMessages.children.length > 50) {
+            chatMessages.removeChild(chatMessages.firstChild);
+        }
+    }
+    
+    function sendMessage() {
+        const text = chatInput.value.trim();
+        if (text === '') return;
+        socket.emit('chatMessage', { message: text });
+        chatInput.value = '';
+        chatInput.focus();
+    }
+    
+    chatSend.onclick = sendMessage;
+    chatInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') sendMessage();
+    });
+    
+    joinBtn.onclick = () => {
+        const username = usernameInput.value.trim();
+        const password = passwordInput.value;
+        if (username === '') {
+            errorMsg.innerText = 'Please enter a username';
+            return;
+        }
+        
+        joinScreen.classList.add('hidden');
+        gameScreen.classList.remove('hidden');
+        
+        socket.emit('joinGame', { username: username, password: password });
+        
+        function gameLoop() {
+            if (myPlayer) {
+                movePlayer();
+                checkCollisions();
+                draw();
+            }
+            requestAnimationFrame(gameLoop);
+        }
+        gameLoop();
+    };
+    
+    socket.on('currentPlayers', (serverPlayers) => {
+        players = serverPlayers;
+        for (let id in players) {
+            if (players[id].username === usernameInput.value.trim()) {
+                myId = id;
+                myPlayer = players[id];
+                adminNameSpan.innerText = myPlayer.isAdmin ? myPlayer.username : 'None';
+                updateSizeDisplay(myPlayer.radius);
+                currentLevel = myPlayer.level || 1;
+                currentTitle = myPlayer.title || '🍼 Newbie';
+                currentPerks = myPlayer.perks || { speedMultiplier: 1, sizeMultiplier: 1, scoreMultiplier: 1, eatRangeMultiplier: 1 };
+                levelElement.innerText = currentLevel;
+                levelTitleElement.innerText = currentTitle;
+                perksElement.innerHTML = formatPerks(currentPerks);
+                if (myPlayer.isAdmin) {
+                    addChatMessage('System', 'You are ADMIN! Type /help', false, true);
+                }
+            }
+        }
+    });
+    
+    socket.on('currentBots', (serverBots) => {
+        for (const id in serverBots) {
+            players[id] = { ...serverBots[id], isBot: true };
+        }
+    });
+    
+    socket.on('updateBots', (serverBots) => {
+        for (const id in players) {
+            if (players[id].isBot && !serverBots[id]) {
+                delete players[id];
+            }
+        }
+        for (const id in serverBots) {
+            players[id] = { ...serverBots[id], isBot: true };
+        }
+    });
+    
+    socket.on('currentOrbs', (serverOrbs) => {
+        orbs = serverOrbs;
+        collectingOrbIds.clear();
+    });
+    
+    socket.on('mapSizeUpdate', (data) => {
+        MAP_WIDTH = data.width;
+        MAP_HEIGHT = data.height;
+    });
+    
+    socket.on('newPlayer', (playerData) => {
+        players[playerData.id] = playerData;
+        addChatMessage('System', `${playerData.username} joined!`, false, true);
+    });
+    
+    socket.on('playerMoved', (playerData) => {
+        if (players[playerData.id]) {
+            players[playerData.id].x = playerData.x;
+            players[playerData.id].y = playerData.y;
+        }
+    });
+    
+    socket.on('playerDisconnected', (playerId) => {
+        if (players[playerId]) {
+            addChatMessage('System', `${players[playerId].username} left`, false, true);
+            delete players[playerId];
+        }
+    });
+    
+    socket.on('leaderboardUpdate', (leaderboard) => {
+        let html = '';
+        for (let i = 0; i < leaderboard.length; i++) {
+            const p = leaderboard[i];
+            const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : '  ';
+            html += `<div>${medal} ${p.username} - ${formatScore(p.score)} (Lvl ${p.level})</div>`;
+        }
+        leaderboardList.innerHTML = html;
+    });
+    
+    socket.on('scoreUpdate', (data) => {
+        if (players[data.id]) {
+            players[data.id].score = data.score;
+            players[data.id].radius = data.radius;
+            players[data.id].level = data.level;
+            players[data.id].title = data.title;
+            players[data.id].perks = data.perks;
+        }
+        if (data.id === myId) {
+            if (data.score > currentScore) {
+                currentScore = data.score;
+                scoreElement.innerText = formatScore(currentScore);
+            }
+            if (myPlayer) {
+                myPlayer.radius = data.radius;
+                updateSizeDisplay(data.radius);
+            }
+            if (data.level !== lastLevel) {
+                lastLevel = data.level;
+                currentLevel = data.level;
+                currentTitle = data.title;
+                currentPerks = data.perks;
+                levelElement.innerText = data.level;
+                levelTitleElement.innerText = data.title;
+                perksElement.innerHTML = formatPerks(data.perks);
+                addChatMessage('System', `🎉 LEVEL UP! You reached ${data.title} (Level ${data.level})!`, false, true);
+            } else if (data.perks) {
+                currentPerks = data.perks;
+                perksElement.innerHTML = formatPerks(data.perks);
+            }
+        }
+    });
+    
+    socket.on('orbCollected', (orbId) => {
+        collectingOrbIds.delete(orbId);
+        const index = orbs.findIndex(o => o.id === orbId);
+        if (index !== -1) {
+            orbs.splice(index, 1);
+        }
+    });
+    
+    socket.on('orbCollectionFailed', (orbId) => {
+        collectingOrbIds.delete(orbId);
+    });
+    
+    socket.on('chatMessage', (data) => {
+        addChatMessage(data.username, data.message, data.isAdmin);
+    });
+    
+    socket.on('adminConfirm', (isAdmin) => {
+        if (isAdmin && myPlayer) {
+            myPlayer.isAdmin = true;
+            adminNameSpan.innerText = myPlayer.username;
+            addChatMessage('System', 'You are ADMIN!', false, true);
+        }
+    });
+    
+    socket.on('nameRejected', (msg) => {
+        alert(msg);
+        window.location.reload();
+    });
+    
+    socket.on('kicked', (msg) => {
+        alert(msg);
+        window.location.reload();
+    });
+    
+    function movePlayer() {
+        if (!myPlayer) return;
+        
+        let targetX = myPlayer.x;
+        let targetY = myPlayer.y;
+        
+        if (useMouse && mouseX !== null && mouseY !== null) {
+            targetX = mouseX;
+            targetY = mouseY;
+        } else {
+            const move = getMoveVector();
+            if (move.x !== 0 || move.y !== 0) {
+                const baseSpeed = Math.min(6, 150 / myPlayer.radius);
+                const speedMultiplier = currentPerks?.speedMultiplier || 1;
+                const speed = baseSpeed * speedMultiplier;
+                targetX = myPlayer.x + move.x * speed;
+                targetY = myPlayer.y + move.y * speed;
+            }
+        }
+        
+        const dx = targetX - myPlayer.x;
+        const dy = targetY - myPlayer.y;
+        const distance = Math.hypot(dx, dy);
+        if (distance > 1) {
+            const baseSpeed = Math.min(6, 150 / myPlayer.radius);
+            const speedMultiplier = currentPerks?.speedMultiplier || 1;
+            const speed = baseSpeed * speedMultiplier;
+            myPlayer.x += (dx / distance) * speed;
+            myPlayer.y += (dy / distance) * speed;
+        }
+        
+        myPlayer.x = Math.min(Math.max(myPlayer.x, myPlayer.radius + 5), MAP_WIDTH - myPlayer.radius - 5);
+        myPlayer.y = Math.min(Math.max(myPlayer.y, myPlayer.radius + 5), MAP_HEIGHT - myPlayer.radius - 5);
+        socket.emit('playerMovement', { x: myPlayer.x, y: myPlayer.y });
+    }
+    
+    function checkCollisions() {
+        if (!myPlayer) return;
+        
+        for (let i = 0; i < orbs.length; i++) {
+            const orb = orbs[i];
+            if (collectingOrbIds.has(orb.id)) continue;
+            
+            const dist = Math.hypot(myPlayer.x - orb.x, myPlayer.y - orb.y);
+            if (dist < myPlayer.radius + orb.radius) {
                 collectingOrbIds.add(orb.id);
                 socket.emit('collectOrb', orb.id);
-                orbs.splice(i,1);
+                orbs.splice(i, 1);
                 currentScore += orb.value;
                 scoreElement.innerText = formatScore(currentScore);
-                if(myPlayer) myPlayer.score = currentScore;
+                if (myPlayer) myPlayer.score = currentScore;
                 break;
             }
         }
-        for(let id in players){
-            if(id===myId) continue;
-            let other=players[id];
-            if(other.isBot) continue;
-            if(Math.hypot(myPlayer.x-other.x, myPlayer.y-other.y) < myPlayer.radius+other.radius){
-                if(myPlayer.radius > other.radius && !other.isAdmin){
+        
+        for (const id in players) {
+            if (id === myId) continue;
+            const other = players[id];
+            if (other.isBot) continue;
+            
+            const dist = Math.hypot(myPlayer.x - other.x, myPlayer.y - other.y);
+            if (dist < myPlayer.radius + other.radius) {
+                if (myPlayer.radius > other.radius && !other.isAdmin) {
                     socket.emit('eatPlayer', id);
                     addChatMessage('System', `🍽️ You ate ${other.username}!`, false, true);
-                } else if(other.radius > myPlayer.radius){
+                } else if (other.radius > myPlayer.radius) {
                     socket.emit('eatPlayer', myId);
                     addChatMessage('System', `💀 You were eaten by ${other.username}!`, false, true);
-                    myPlayer.x = Math.random()*(MAP_WIDTH-400)+200;
-                    myPlayer.y = Math.random()*(MAP_HEIGHT-400)+200;
-                    socket.emit('playerMovement', { x:myPlayer.x, y:myPlayer.y });
+                    myPlayer.x = Math.random() * (MAP_WIDTH - 400) + 200;
+                    myPlayer.y = Math.random() * (MAP_HEIGHT - 400) + 200;
+                    socket.emit('playerMovement', { x: myPlayer.x, y: myPlayer.y });
                 } else {
-                    let ang=Math.atan2(myPlayer.y-other.y, myPlayer.x-other.x);
-                    myPlayer.x += Math.cos(ang)*20;
-                    myPlayer.y += Math.sin(ang)*20;
+                    const angle = Math.atan2(myPlayer.y - other.y, myPlayer.x - other.x);
+                    myPlayer.x += Math.cos(angle) * 20;
+                    myPlayer.y += Math.sin(angle) * 20;
                 }
             }
         }
     }
     
-    function updateCamera(){
-        if(!myPlayer) return;
-        let effW = canvas.width/zoom, effH = canvas.height/zoom;
-        cameraX = myPlayer.x - effW/2;
-        cameraY = myPlayer.y - effH/2;
-        cameraX = Math.min(Math.max(cameraX,0), MAP_WIDTH-effW);
-        cameraY = Math.min(Math.max(cameraY,0), MAP_HEIGHT-effH);
+    function updateCamera() {
+        if (!myPlayer) return;
+        const effectiveWidth = canvas.width / zoom;
+        const effectiveHeight = canvas.height / zoom;
+        cameraX = myPlayer.x - effectiveWidth / 2;
+        cameraY = myPlayer.y - effectiveHeight / 2;
+        cameraX = Math.min(Math.max(cameraX, 0), MAP_WIDTH - effectiveWidth);
+        cameraY = Math.min(Math.max(cameraY, 0), MAP_HEIGHT - effectiveHeight);
     }
     
-    function draw(){
-        if(!myPlayer) return;
+    function draw() {
+        if (!myPlayer) return;
         updateCamera();
-        ctx.fillStyle='#0a0f1e'; ctx.fillRect(0,0,canvas.width,canvas.height);
-        // grid
-        let gs=200; if(zoom<0.3) gs=500; if(zoom<0.15) gs=1000; if(zoom>1.5) gs=100;
-        ctx.strokeStyle='#1a2340'; ctx.lineWidth=1;
-        let sx=Math.floor(cameraX/gs)*gs, sy=Math.floor(cameraY/gs)*gs;
-        for(let x=sx; x<cameraX+canvas.width/zoom; x+=gs){ let scrX=(x-cameraX)*zoom; ctx.beginPath(); ctx.moveTo(scrX,0); ctx.lineTo(scrX,canvas.height); ctx.stroke(); }
-        for(let y=sy; y<cameraY+canvas.height/zoom; y+=gs){ let scrY=(y-cameraY)*zoom; ctx.beginPath(); ctx.moveTo(0,scrY); ctx.lineTo(canvas.width,scrY); ctx.stroke(); }
-        // orbs
-        for(let orb of orbs){
-            let scrX=(orb.x-cameraX)*zoom, scrY=(orb.y-cameraY)*zoom, rad=orb.radius*zoom;
-            if(scrX+rad>0 && scrX-rad<canvas.width && scrY+rad>0 && scrY-rad<canvas.height){
-                ctx.beginPath(); ctx.arc(scrX,scrY,rad,0,Math.PI*2); ctx.fillStyle=orb.color; ctx.fill();
-            }
+        
+        ctx.fillStyle = '#0a0f1e';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        
+        let gridSize = 200;
+        if (zoom < 0.3) gridSize = 500;
+        if (zoom < 0.15) gridSize = 1000;
+        if (zoom > 1.5) gridSize = 100;
+        
+        ctx.strokeStyle = '#1a2340';
+        ctx.lineWidth = 1;
+        const startX = Math.floor(cameraX / gridSize) * gridSize;
+        const startY = Math.floor(cameraY / gridSize) * gridSize;
+        for (let x = startX; x < cameraX + canvas.width / zoom; x += gridSize) {
+            const screenX = (x - cameraX) * zoom;
+            ctx.beginPath();
+            ctx.moveTo(screenX, 0);
+            ctx.lineTo(screenX, canvas.height);
+            ctx.stroke();
         }
-        // other players
-        for(let id in players){
-            if(id===myId) continue;
-            let p=players[id];
-            let scrX=(p.x-cameraX)*zoom, scrY=(p.y-cameraY)*zoom, rad=p.radius*zoom;
-            if(scrX+rad>0 && scrX-rad<canvas.width && scrY+rad>0 && scrY-rad<canvas.height){
-                ctx.beginPath(); ctx.arc(scrX,scrY,rad,0,Math.PI*2);
-                if(p.isBot) ctx.fillStyle='#a855f7';
-                else if(p.isAdmin) ctx.fillStyle='#fbbf24';
-                else if(p.radius>myPlayer.radius) ctx.fillStyle='#ff4444';
-                else ctx.fillStyle='#ef4444';
+        for (let y = startY; y < cameraY + canvas.height / zoom; y += gridSize) {
+            const screenY = (y - cameraY) * zoom;
+            ctx.beginPath();
+            ctx.moveTo(0, screenY);
+            ctx.lineTo(canvas.width, screenY);
+            ctx.stroke();
+        }
+        
+        for (const orb of orbs) {
+            const screenX = (orb.x - cameraX) * zoom;
+            const screenY = (orb.y - cameraY) * zoom;
+            const radius = orb.radius * zoom;
+            if (screenX + radius > 0 && screenX - radius < canvas.width &&
+                screenY + radius > 0 && screenY - radius < canvas.height) {
+                ctx.beginPath();
+                ctx.arc(screenX, screenY, radius, 0, Math.PI * 2);
+                ctx.fillStyle = orb.color;
                 ctx.fill();
-                ctx.fillStyle='white';
-                ctx.font=`${Math.max(10,12*zoom)}px Arial`;
-                let badge=p.level?` [Lvl ${p.level}]`:'';
-                let name=p.isBot?`🤖 ${p.username}${badge}`:`${p.username}${badge}`;
-                ctx.fillText(name, scrX-30*zoom, scrY-15*zoom);
             }
         }
-        // my player
-        let myX=(myPlayer.x-cameraX)*zoom, myY=(myPlayer.y-cameraY)*zoom, myR=myPlayer.radius*zoom;
-        ctx.beginPath(); ctx.arc(myX,myY,myR,0,Math.PI*2);
-        let col=getCellColor(currentLevel);
-        if(col==='rainbow'){
-            let grad=ctx.createLinearGradient(myX-myR,myY-myR,myX+myR,myY+myR);
-            grad.addColorStop(0,'#ff0000'); grad.addColorStop(0.2,'#ffff00'); grad.addColorStop(0.4,'#00ff00');
-            grad.addColorStop(0.6,'#00ffff'); grad.addColorStop(0.8,'#0000ff'); grad.addColorStop(1,'#ff00ff');
-            ctx.fillStyle=grad;
-        } else ctx.fillStyle=col;
+        
+        for (const id in players) {
+            if (id === myId) continue;
+            const p = players[id];
+            const screenX = (p.x - cameraX) * zoom;
+            const screenY = (p.y - cameraY) * zoom;
+            const radius = p.radius * zoom;
+            if (screenX + radius > 0 && screenX - radius < canvas.width &&
+                screenY + radius > 0 && screenY - radius < canvas.height) {
+                ctx.beginPath();
+                ctx.arc(screenX, screenY, radius, 0, Math.PI * 2);
+                if (p.isBot) ctx.fillStyle = '#a855f7';
+                else if (p.isAdmin) ctx.fillStyle = '#fbbf24';
+                else if (p.radius > myPlayer.radius) ctx.fillStyle = '#ff4444';
+                else ctx.fillStyle = '#ef4444';
+                ctx.fill();
+                ctx.fillStyle = 'white';
+                ctx.font = `${Math.max(10, 12 * zoom)}px Arial`;
+                const levelBadge = p.level ? ` [Lvl ${p.level}]` : '';
+                const displayName = p.isBot ? `🤖 ${p.username}${levelBadge}` : `${p.username}${levelBadge}`;
+                ctx.fillText(displayName, screenX - 30 * zoom, screenY - 15 * zoom);
+            }
+        }
+        
+        const myScreenX = (myPlayer.x - cameraX) * zoom;
+        const myScreenY = (myPlayer.y - cameraY) * zoom;
+        const myRadius = myPlayer.radius * zoom;
+        ctx.beginPath();
+        ctx.arc(myScreenX, myScreenY, myRadius, 0, Math.PI * 2);
+        
+        const myColor = getCellColor(currentLevel);
+        if (myColor === 'rainbow') {
+            const gradient = ctx.createLinearGradient(myScreenX - myRadius, myScreenY - myRadius, myScreenX + myRadius, myScreenY + myRadius);
+            gradient.addColorStop(0, '#ff0000');
+            gradient.addColorStop(0.2, '#ffff00');
+            gradient.addColorStop(0.4, '#00ff00');
+            gradient.addColorStop(0.6, '#00ffff');
+            gradient.addColorStop(0.8, '#0000ff');
+            gradient.addColorStop(1, '#ff00ff');
+            ctx.fillStyle = gradient;
+        } else {
+            ctx.fillStyle = myColor;
+        }
         ctx.fill();
-        ctx.strokeStyle='#fff'; ctx.lineWidth=3*zoom; ctx.stroke();
-        ctx.fillStyle='#fff'; ctx.font=`bold ${Math.max(12,myR*0.5)}px Arial`;
-        ctx.fillText(`${myPlayer.username} [Lvl ${currentLevel}]`, myX-35*zoom, myY-12*zoom);
-        if(myPlayer.isAdmin){ ctx.fillStyle='#fbbf24'; ctx.font=`${Math.max(12,16*zoom)}px Arial`; ctx.fillText('👑', myX+15*zoom, myY-15*zoom); }
-        if(currentLevel>=10){ ctx.shadowBlur=12*zoom; ctx.shadowColor='#fbbf24'; ctx.fill(); ctx.shadowBlur=0; }
-        if(currentLevel>=15){ ctx.beginPath(); ctx.arc(myX,myY,myR+3*zoom,0,Math.PI*2); ctx.strokeStyle='#a855f7'; ctx.lineWidth=2*zoom; ctx.stroke(); }
-        if(currentLevel>=20){ ctx.beginPath(); ctx.arc(myX,myY,myR+6*zoom,0,Math.PI*2); ctx.strokeStyle='#fbbf24'; ctx.lineWidth=2*zoom; ctx.stroke(); }
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 3 * zoom;
+        ctx.stroke();
+        ctx.fillStyle = '#ffffff';
+        ctx.font = `bold ${Math.max(12, myRadius * 0.5)}px Arial`;
+        ctx.fillText(`${myPlayer.username} [Lvl ${currentLevel}]`, myScreenX - 35 * zoom, myScreenY - 12 * zoom);
+        if (myPlayer.isAdmin) {
+            ctx.fillStyle = '#fbbf24';
+            ctx.font = `${Math.max(12, 16 * zoom)}px Arial`;
+            ctx.fillText('👑', myScreenX + 15 * zoom, myScreenY - 15 * zoom);
+        }
+        
+        if (currentLevel >= 10) {
+            ctx.shadowBlur = 12 * zoom;
+            ctx.shadowColor = '#fbbf24';
+            ctx.fill();
+            ctx.shadowBlur = 0;
+        }
+        
+        if (currentLevel >= 15) {
+            ctx.beginPath();
+            ctx.arc(myScreenX, myScreenY, myRadius + 3 * zoom, 0, Math.PI * 2);
+            ctx.strokeStyle = '#a855f7';
+            ctx.lineWidth = 2 * zoom;
+            ctx.stroke();
+        }
+        if (currentLevel >= 20) {
+            ctx.beginPath();
+            ctx.arc(myScreenX, myScreenY, myRadius + 6 * zoom, 0, Math.PI * 2);
+            ctx.strokeStyle = '#fbbf24';
+            ctx.lineWidth = 2 * zoom;
+            ctx.stroke();
+        }
     }
-    resizeCanvas();
 </script>
 </body>
 </html>
