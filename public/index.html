@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>RYZZ.io - Bots Arena</title>
+    <title>RYZZ.io - Infinite Arena</title>
     <style>
         * {
             margin: 0;
@@ -113,7 +113,7 @@
         }
         #zoomLevel {
             font-size: 11px;
-            min-width: 35px;
+            min-width: 45px;
             text-align: center;
         }
         /* Size indicator bar */
@@ -232,6 +232,7 @@
                     <div id="sizeBar"></div>
                 </div>
             </div>
+            <div class="stats">🗺️ Map: <span id="mapSize">4k</span></div>
             <div class="stats">👑 Admin: <span id="adminName"></span></div>
             <div id="zoomControl">
                 <span>🔍</span>
@@ -279,12 +280,15 @@
     
     let cameraX = 0, cameraY = 0;
     let mouseX = 0, mouseY = 0;
-    let zoom = 1.0;
-    const MIN_ZOOM = 0.3;
-    const MAX_ZOOM = 2.0;
     
-    const MAP_WIDTH = 4000;
-    const MAP_HEIGHT = 4000;
+    // INFINITE ZOOM - from 5% to 300%
+    let zoom = 1.0;
+    const MIN_ZOOM = 0.05;   // 5% - see the whole map
+    const MAX_ZOOM = 3.0;    // 300% - extreme close up
+    
+    // Dynamic map size (starts at 4000, grows up to 20000)
+    let MAP_WIDTH = 4000;
+    let MAP_HEIGHT = 4000;
     
     let collectingOrbIds = new Set();
     
@@ -298,6 +302,7 @@
     const scoreElement = document.getElementById('scoreValue');
     const sizeElement = document.getElementById('sizeValue');
     const sizeBar = document.getElementById('sizeBar');
+    const mapSizeElement = document.getElementById('mapSize');
     const leaderboardList = document.getElementById('leaderboardList');
     const chatMessages = document.getElementById('chatMessages');
     const chatInput = document.getElementById('chatInput');
@@ -305,10 +310,20 @@
     const adminNameSpan = document.getElementById('adminName');
     const zoomLevelSpan = document.getElementById('zoomLevel');
     
+    function formatMapSize(size) {
+        if (size >= 10000) {
+            return (size / 1000).toFixed(0) + 'k';
+        }
+        return (size / 1000).toFixed(1) + 'k';
+    }
+    
+    function updateMapSizeDisplay() {
+        mapSizeElement.innerText = formatMapSize(MAP_WIDTH);
+    }
+    
     function updateSizeDisplay(radius) {
         currentSize = Math.floor(radius);
         sizeElement.innerText = currentSize;
-        // Update size bar (max 120 for bar width)
         const percent = Math.min(100, (radius / 120) * 100);
         sizeBar.style.width = `${percent}%`;
     }
@@ -410,6 +425,14 @@
                 }
             }
         }
+    });
+    
+    // Dynamic map size update
+    socket.on('mapSizeUpdate', (data) => {
+        MAP_WIDTH = data.width;
+        MAP_HEIGHT = data.height;
+        updateMapSizeDisplay();
+        console.log(`Map expanded to ${MAP_WIDTH}x${MAP_HEIGHT}`);
     });
     
     socket.on('currentBots', (serverBots) => {
@@ -608,10 +631,14 @@
         ctx.fillStyle = '#0a0f1e';
         ctx.fillRect(0, 0, canvas.width, canvas.height);
         
-        // Draw grid
+        // Draw adaptive grid (grid size changes with zoom)
+        let gridSize = 200;
+        if (zoom < 0.3) gridSize = 500;
+        if (zoom < 0.15) gridSize = 1000;
+        if (zoom > 1.5) gridSize = 100;
+        
         ctx.strokeStyle = '#1a2340';
         ctx.lineWidth = 1;
-        const gridSize = 200;
         const startX = Math.floor(cameraX / gridSize) * gridSize;
         const startY = Math.floor(cameraY / gridSize) * gridSize;
         for (let x = startX; x < cameraX + canvas.width / zoom; x += gridSize) {
@@ -640,6 +667,13 @@
                 ctx.arc(screenX, screenY, radius, 0, Math.PI * 2);
                 ctx.fillStyle = orb.color;
                 ctx.fill();
+                // Add shine for rare orbs
+                if (orb.value >= 50) {
+                    ctx.beginPath();
+                    ctx.arc(screenX - radius * 0.3, screenY - radius * 0.3, radius * 0.2, 0, Math.PI * 2);
+                    ctx.fillStyle = 'rgba(255,255,255,0.6)';
+                    ctx.fill();
+                }
             }
         }
         
@@ -695,6 +729,17 @@
             ctx.fillStyle = '#fbbf24';
             ctx.font = `${Math.max(12, 16 * zoom)}px Arial`;
             ctx.fillText('👑', myScreenX + 5 * zoom, myScreenY - 15 * zoom);
+        }
+        
+        // Draw mini-map indicator when zoomed out
+        if (zoom < 0.3) {
+            ctx.fillStyle = 'rgba(0,0,0,0.5)';
+            ctx.fillRect(5, 5, 100, 60);
+            ctx.fillStyle = '#3b82f6';
+            ctx.fillRect(5 + (myPlayer.x / MAP_WIDTH) * 100, 5 + (myPlayer.y / MAP_HEIGHT) * 60, 4, 4);
+            ctx.fillStyle = '#fbbf24';
+            ctx.font = '8px Arial';
+            ctx.fillText('YOU', 5 + (myPlayer.x / MAP_WIDTH) * 100 - 5, 5 + (myPlayer.y / MAP_HEIGHT) * 60 - 2);
         }
     }
 </script>
