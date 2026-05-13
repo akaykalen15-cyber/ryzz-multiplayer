@@ -37,6 +37,10 @@
             font-size: 16px;
             width: 250px;
             margin-bottom: 10px;
+            outline: none;
+        }
+        #joinScreen input:focus {
+            border-color: #fbbf24;
         }
         #joinScreen button {
             background: #3b82f6;
@@ -46,6 +50,9 @@
             border-radius: 8px;
             font-size: 16px;
             cursor: pointer;
+        }
+        #joinScreen button:hover {
+            background: #2563eb;
         }
         #errorMsg {
             color: #ef4444;
@@ -87,7 +94,6 @@
             color: #fbbf24;
             font-weight: bold;
         }
-        /* Glowing admin name style */
         .admin-glowing {
             font-weight: bold;
             color: #ffffff;
@@ -220,8 +226,8 @@
 <body>
 <div id="joinScreen">
     <h1>👑 RYZZ.io</h1>
-    <input type="text" id="usernameInput" placeholder="Enter username" maxlength="20">
-    <input type="password" id="passwordInput" placeholder="Admin password" style="margin-top: 10px;">
+    <input type="text" id="usernameInput" placeholder="Enter username" maxlength="20" autocomplete="off">
+    <input type="password" id="passwordInput" placeholder="Admin password" style="margin-top: 10px;" autocomplete="off">
     <br>
     <button id="joinBtn">Join Game</button>
     <div id="errorMsg"></div>
@@ -310,7 +316,6 @@
     let collectingOrbIds = new Set();
     let lastLevel = 1;
     
-    // DOM elements
     const joinScreen = document.getElementById('joinScreen');
     const gameScreen = document.getElementById('gameScreen');
     const usernameInput = document.getElementById('usernameInput');
@@ -475,7 +480,6 @@
         if (e.key === 'Enter') sendMessage();
     });
     
-    // JOIN BUTTON - WORKING
     joinBtn.onclick = () => {
         const username = usernameInput.value.trim();
         const password = passwordInput.value;
@@ -523,12 +527,11 @@
             if (players[id].username === usernameInput.value.trim()) {
                 myId = id;
                 myPlayer = players[id];
-                // Set admin name display with glow if admin
                 if (myPlayer.isAdmin) {
                     adminNameSpan.innerText = myPlayer.username;
                     adminNameSpan.className = 'admin-glowing';
                 } else {
-                    adminNameSpan.innerText = myPlayer.isAdmin ? myPlayer.username : 'None';
+                    adminNameSpan.innerText = 'None';
                     adminNameSpan.className = '';
                 }
                 updateSizeDisplay(myPlayer.radius);
@@ -882,7 +885,6 @@
         ctx.lineWidth = 3 * zoom;
         ctx.stroke();
         
-        // Draw admin name with glow if admin
         ctx.fillStyle = '#ffffff';
         ctx.font = `bold ${Math.max(12, myRadius * 0.5)}px Arial`;
         if (myPlayer.isAdmin) {
