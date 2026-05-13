@@ -25,7 +25,7 @@ let bots = {};
 
 let MAP_WIDTH = 4000;
 let MAP_HEIGHT = 4000;
-const MAX_MAP_SIZE = 50000;
+const MAX_MAP_SIZE = 20000;
 const MIN_MAP_SIZE = 4000;
 
 let orbs = [];
@@ -68,7 +68,7 @@ function updateAllTimeLeaderboard(username, score) {
     io.emit('allTimeLeaderboard', allTimeTop10);
 }
 
-// INFINITE LEVEL SYSTEM (for players only)
+// LEVEL SYSTEM
 function getLevel(score) {
     if (score < 1000) return 1;
     if (score < 2500) return 2;
@@ -134,27 +134,12 @@ function getLevelTitle(level) {
     return '∞ Infinity';
 }
 
-// SCALING PERKS (for players only)
+// SCALING PERKS (capped at reasonable values)
 function getPerks(level) {
-    let speedBonus = Math.min(Math.floor(level * 1.5), 500);
-    let sizeBonus = Math.min(Math.floor(level * 1.2), 500);
-    let scoreBonus = Math.min(Math.floor(level * 1), 500);
-    let eatRangeBonus = Math.min(Math.floor(level * 0.8), 300);
-    
-    return {
-        speedMultiplier: 1 + (speedBonus / 100),
-        sizeMultiplier: 1 + (sizeBonus / 100),
-        scoreMultiplier: 1 + (scoreBonus / 100),
-        eatRangeMultiplier: 1 + (eatRangeBonus / 100)
-    };
-}
-
-// BOT PERKS (capped - bots don't get infinite scaling)
-function getBotPerks(level) {
-    let speedBonus = Math.min(Math.floor(level * 0.5), 100);
-    let sizeBonus = Math.min(Math.floor(level * 0.3), 50);
-    let scoreBonus = Math.min(Math.floor(level * 0.2), 50);
-    let eatRangeBonus = Math.min(Math.floor(level * 0.2), 50);
+    let speedBonus = Math.min(Math.floor(level * 1.5), 200);
+    let sizeBonus = Math.min(Math.floor(level * 1.2), 150);
+    let scoreBonus = Math.min(Math.floor(level * 1), 150);
+    let eatRangeBonus = Math.min(Math.floor(level * 0.8), 100);
     
     return {
         speedMultiplier: 1 + (speedBonus / 100),
@@ -171,13 +156,13 @@ function formatScore(score) {
     return score.toString();
 }
 
-// DYNAMIC MAP SIZE - expands with highest player score
+// DYNAMIC MAP SIZE
 function updateMapSize() {
     let highestScore = 0;
     for (const id in players) if (players[id].score > highestScore) highestScore = players[id].score;
     for (const id in bots) if (bots[id].score > highestScore) highestScore = bots[id].score;
     
-    let newSize = Math.min(MAX_MAP_SIZE, MIN_MAP_SIZE + Math.floor(highestScore / 50));
+    let newSize = Math.min(MAX_MAP_SIZE, MIN_MAP_SIZE + Math.floor(highestScore / 100));
     if (newSize !== MAP_WIDTH) {
         MAP_WIDTH = newSize;
         MAP_HEIGHT = newSize;
@@ -210,38 +195,33 @@ function generateBot() {
         username: name, 
         x: Math.random() * MAP_WIDTH, 
         y: Math.random() * MAP_HEIGHT,
-        radius: 18,  // Fixed starting size
+        radius: 18,
         score: startScore, 
         level: level,
         title: getLevelTitle(level), 
-        perks: getBotPerks(level),  // Bots use capped perks
+        perks: getPerks(level),
         isBot: true, 
         kills: 0
     };
 }
 
-// Start with orbs and bots
 generateOrbs(600);
 for (let i = 0; i < 8; i++) generateBot();
 
 setInterval(() => updateMapSize(), 1000);
 
-// Orb respawn
 setInterval(() => {
     if (orbs.length < 400) {
         generateOrbs(80);
-        console.log(`Low on orbs (${orbs.length}), generated 80 more`);
     } else {
         generateOrbs(20);
     }
 }, 800);
 
-// Bot respawn
 setInterval(() => {
     const botCount = Object.keys(bots).length;
     if (botCount < 6) {
         generateBot();
-        console.log(`Low bots (${botCount}), spawned new one`);
     }
 }, 15000);
 
@@ -287,13 +267,11 @@ setInterval(() => {
         bot.x = Math.min(Math.max(bot.x, bot.radius + 5), MAP_WIDTH - bot.radius - 5);
         bot.y = Math.min(Math.max(bot.y, bot.radius + 5), MAP_HEIGHT - bot.radius - 5);
         
-        // Bot collects orbs (score increases but size is CAPPED)
         for (let i = 0; i < orbs.length; i++) {
             const orb = orbs[i];
             if (Math.hypot(bot.x - orb.x, bot.y - orb.y) < bot.radius + orb.radius) {
                 bot.score += orb.value;
-                // BOT SIZE CAP: Max 120 (same as player max)
-                bot.radius = Math.min(120, 18 + Math.floor(bot.score / 100));
+                bot.radius = Math.min(100, 18 + Math.floor(bot.score / 100));
                 orbs.splice(i, 1); i--;
             }
         }
@@ -302,7 +280,7 @@ setInterval(() => {
         if (newLevel !== bot.level) {
             bot.level = newLevel;
             bot.title = getLevelTitle(newLevel);
-            bot.perks = getBotPerks(newLevel);
+            bot.perks = getPerks(newLevel);
         }
     }
     io.emit('updateBots', bots);
@@ -318,9 +296,9 @@ setInterval(() => {
                 if (bot.radius > player.radius && !player.isAdmin) {
                     const gain = Math.floor((player.score / 3) + 100);
                     bot.score += gain;
-                    bot.radius = Math.min(120, 18 + Math.floor(bot.score / 100));
+                    bot.radius = Math.min(100, 18 + Math.floor(bot.score / 100));
                     player.score = Math.floor(player.score / 5);
-                    player.radius = 20 + Math.floor(player.score / 50);
+                    player.radius = Math.min(200, 20 + Math.floor(player.score / 50));
                     player.x = Math.random() * MAP_WIDTH;
                     player.y = Math.random() * MAP_HEIGHT;
                     const newLevel = getLevel(player.score);
@@ -333,7 +311,7 @@ setInterval(() => {
                 } else if (player.radius > bot.radius) {
                     const gain = Math.floor((bot.score / 2) + 100) * (player.perks?.scoreMultiplier || 1);
                     player.score += gain;
-                    player.radius = 20 + Math.floor(player.score / 50);
+                    player.radius = Math.min(200, 20 + Math.floor(player.score / 50));
                     const newLevel = getLevel(player.score);
                     player.level = newLevel;
                     player.title = getLevelTitle(newLevel);
@@ -361,9 +339,18 @@ io.on('connection', (socket) => {
         }
         
         const isAdmin = (username === ADMIN_NAME && password === ADMIN_PASSWORD);
-        for (let id in players) if (players[id].username === username) {
-            socket.emit('nameRejected', 'Username taken!');
+        
+        // Prevent impersonation
+        if (username === ADMIN_NAME && !isAdmin) {
+            socket.emit('nameRejected', 'Username "RYZZ" is reserved for the admin!');
             return;
+        }
+        
+        for (let id in players) {
+            if (players[id].username === username) {
+                socket.emit('nameRejected', 'Username already taken!');
+                return;
+            }
         }
         
         players[socket.id] = {
@@ -379,7 +366,7 @@ io.on('connection', (socket) => {
         socket.emit('adminConfirm', isAdmin);
         socket.broadcast.emit('newPlayer', players[socket.id]);
         updateLeaderboard();
-        console.log(`${username} joined`);
+        console.log(`${username} joined (Admin: ${isAdmin})`);
     });
 
     socket.on('playerMovement', (data) => {
@@ -397,7 +384,7 @@ io.on('connection', (socket) => {
         
         const points = Math.floor(orb.value * (player.perks?.scoreMultiplier || 1));
         player.score += points;
-        player.radius = 20 + Math.floor(player.score / 50);
+        player.radius = Math.min(200, 20 + Math.floor(player.score / 50));
         
         const newLevel = getLevel(player.score);
         if (newLevel !== player.level) {
@@ -421,7 +408,7 @@ io.on('connection', (socket) => {
         if (eater.radius > target.radius && !target.isAdmin) {
             const gain = Math.floor((target.score / 2) + 100) * (eater.perks?.scoreMultiplier || 1);
             eater.score += gain;
-            eater.radius = 20 + Math.floor(eater.score / 50);
+            eater.radius = Math.min(200, 20 + Math.floor(eater.score / 50));
             eater.kills = (eater.kills || 0) + 1;
             
             const newEaterLevel = getLevel(eater.score);
@@ -435,7 +422,7 @@ io.on('connection', (socket) => {
             updateAllTimeLeaderboard(eater.username, eater.score);
             
             target.score = Math.floor(target.score / 5);
-            target.radius = 20 + Math.floor(target.score / 50);
+            target.radius = Math.min(200, 20 + Math.floor(target.score / 50));
             target.x = Math.random() * MAP_WIDTH;
             target.y = Math.random() * MAP_HEIGHT;
             
@@ -455,13 +442,12 @@ io.on('connection', (socket) => {
         }
     });
 
-    // ========== ADMIN BUTTON HANDLERS ==========
-    
+    // ADMIN BUTTON HANDLERS
     socket.on('adminGivePoints', (points) => {
         const player = players[socket.id];
         if (player && player.isAdmin) {
             player.score += points;
-            player.radius = 20 + Math.floor(player.score / 50);
+            player.radius = Math.min(200, 20 + Math.floor(player.score / 50));
             const newLevel = getLevel(player.score);
             if (newLevel !== player.level) {
                 player.level = newLevel;
@@ -477,7 +463,7 @@ io.on('connection', (socket) => {
     socket.on('adminHeal', () => {
         const player = players[socket.id];
         if (player && player.isAdmin) {
-            player.radius = 20 + Math.floor(player.score / 50);
+            player.radius = Math.min(200, 20 + Math.floor(player.score / 50));
             io.emit('scoreUpdate', { id: socket.id, score: player.score, radius: player.radius, level: player.level, title: player.title, perks: player.perks, kills: player.kills });
             socket.emit('chatMessage', { username: 'System', message: `💚 Admin healed! Size: ${Math.floor(player.radius)}`, isSystem: true });
         }
@@ -486,9 +472,9 @@ io.on('connection', (socket) => {
     socket.on('adminMaxSize', () => {
         const player = players[socket.id];
         if (player && player.isAdmin) {
-            player.radius = Math.max(120, 20 + Math.floor(player.score / 50));
+            player.radius = 200;
             io.emit('scoreUpdate', { id: socket.id, score: player.score, radius: player.radius, level: player.level, title: player.title, perks: player.perks, kills: player.kills });
-            socket.emit('chatMessage', { username: 'System', message: `💪 Admin set to max size! Size: ${Math.floor(player.radius)}`, isSystem: true });
+            socket.emit('chatMessage', { username: 'System', message: `💪 Admin set to MAX SIZE (200)!`, isSystem: true });
         }
     });
 
@@ -500,8 +486,6 @@ io.on('connection', (socket) => {
         }
     });
 
-    // ========== KICK & BAN HANDLERS ==========
-    
     socket.on('adminKickPlayer', (targetUsername) => {
         const admin = players[socket.id];
         if (!admin || !admin.isAdmin) return;
@@ -617,9 +601,10 @@ function updateLeaderboard() {
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, '0.0.0.0', () => {
     console.log(`\n✅ RYZZ.io BALANCED server running!`);
-    console.log(`📈 Players: Infinite levels & perks!`);
-    console.log(`🤖 Bots: Capped at size 120 (no giant spawn killers)`);
-    console.log(`📏 Players: Unlimited size growth!`);
+    console.log(`📏 Player size cap: 200 (fair and balanced)`);
+    console.log(`🤖 Bot size cap: 100`);
+    console.log(`🔒 Admin name "RYZZ" is protected`);
+    console.log(`📈 Infinite levels!`);
     console.log(`🗺️ Dynamic map (grows with players)`);
     console.log(`👑 Admin: ${ADMIN_NAME}`);
     console.log(`🤖 Bots: ${Object.keys(bots).length}`);
