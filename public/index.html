@@ -51,10 +51,9 @@
             color: #ef4444;
             margin-top: 10px;
         }
-        #gameWrapper {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
+        #gameContainer {
+            position: relative;
+            display: inline-block;
         }
         canvas {
             border: 2px solid #1f2937;
@@ -62,71 +61,24 @@
             border-radius: 8px;
             cursor: crosshair;
         }
-        #ui {
-            margin-top: 12px;
-            display: flex;
-            justify-content: space-between;
-            gap: 15px;
-            flex-wrap: wrap;
-            width: 100%;
-        }
-        .stats, #leaderboard {
-            background: #1f2937;
-            padding: 8px 15px;
+        /* CHAT OVERLAY - INSIDE GAME AREA */
+        #chatOverlay {
+            position: absolute;
+            bottom: 10px;
+            left: 10px;
+            width: 300px;
+            background: rgba(0, 0, 0, 0.85);
             border-radius: 8px;
-            color: white;
-            font-size: 14px;
-        }
-        #leaderboard {
-            min-width: 200px;
-        }
-        #leaderboard h4 {
-            margin-bottom: 5px;
-            color: #fbbf24;
-        }
-        #leaderboardList {
-            max-height: 150px;
-            overflow-y: auto;
-        }
-        #zoomControl {
-            background: #1f2937;
-            padding: 5px 12px;
-            border-radius: 8px;
-            display: flex;
-            gap: 8px;
-            align-items: center;
-        }
-        #zoomControl button {
-            background: #3b82f6;
-            border: none;
-            color: white;
-            padding: 3px 12px;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 14px;
-        }
-        #zoomLevel {
-            color: white;
-            font-size: 12px;
-            min-width: 45px;
-            text-align: center;
-        }
-        /* CHAT - VISIBLE AT BOTTOM */
-        #chatContainer {
-            margin-top: 12px;
-            background: #1f2937;
-            border-radius: 8px;
-            width: 100%;
+            backdrop-filter: blur(5px);
+            border: 1px solid #374151;
+            z-index: 10;
         }
         #chatMessages {
-            height: 100px;
+            height: 120px;
             overflow-y: auto;
-            background: #0a0f1e;
-            border-radius: 8px 8px 0 0;
             padding: 8px;
             font-size: 12px;
             color: #ccc;
-            border-bottom: 1px solid #374151;
         }
         #chatMessages div {
             margin-bottom: 4px;
@@ -134,18 +86,19 @@
         }
         #chatInputArea {
             display: flex;
-            padding: 8px;
-            gap: 8px;
+            padding: 6px;
+            gap: 6px;
+            border-top: 1px solid #374151;
         }
         #chatInput {
             flex: 1;
-            background: #111827;
+            background: #1f2937;
             border: 1px solid #374151;
             color: white;
-            padding: 8px 12px;
+            padding: 6px 8px;
             border-radius: 6px;
             outline: none;
-            font-size: 14px;
+            font-size: 12px;
         }
         #chatInput:focus {
             border-color: #fbbf24;
@@ -154,10 +107,10 @@
             background: #3b82f6;
             border: none;
             color: white;
-            padding: 8px 20px;
+            padding: 6px 12px;
             border-radius: 6px;
             cursor: pointer;
-            font-weight: bold;
+            font-size: 12px;
         }
         #chatSend:hover {
             background: #2563eb;
@@ -170,15 +123,67 @@
             color: #ef4444;
             font-style: italic;
         }
+        /* UI Panel - Top */
+        #ui {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            right: 10px;
+            display: flex;
+            justify-content: space-between;
+            gap: 10px;
+            flex-wrap: wrap;
+            z-index: 10;
+            pointer-events: none;
+        }
+        .stats, #leaderboard, #zoomControl {
+            pointer-events: auto;
+            background: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(5px);
+            padding: 6px 12px;
+            border-radius: 8px;
+            color: white;
+            font-size: 12px;
+            border: 1px solid #374151;
+        }
+        #leaderboard {
+            min-width: 160px;
+        }
+        #leaderboard h4 {
+            margin-bottom: 4px;
+            color: #fbbf24;
+            font-size: 12px;
+        }
+        #leaderboardList {
+            max-height: 100px;
+            overflow-y: auto;
+            font-size: 11px;
+        }
+        #zoomControl button {
+            background: #3b82f6;
+            border: none;
+            color: white;
+            padding: 2px 8px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            pointer-events: auto;
+        }
+        #zoomLevel {
+            font-size: 11px;
+            min-width: 35px;
+            text-align: center;
+        }
         .hidden {
             display: none;
         }
         .score-pop {
-            position: absolute;
+            position: fixed;
             font-weight: bold;
             pointer-events: none;
             animation: floatUp 0.5s ease-out forwards;
-            z-index: 100;
+            z-index: 200;
+            font-size: 18px;
         }
         @keyframes floatUp {
             0% { opacity: 1; transform: translateY(0); }
@@ -197,13 +202,15 @@
 </div>
 
 <div id="gameScreen" class="hidden">
-    <div id="gameWrapper">
+    <div id="gameContainer">
         <canvas id="gameCanvas" width="1200" height="800"></canvas>
+        
+        <!-- UI Overlay on top of canvas -->
         <div id="ui">
             <div class="stats">🎯 Score: <span id="scoreValue">0</span></div>
             <div class="stats">👑 Admin: <span id="adminName"></span></div>
             <div id="zoomControl">
-                <span style="color:white;">🔍</span>
+                <span>🔍</span>
                 <button id="zoomOutBtn">-</button>
                 <span id="zoomLevel">100%</span>
                 <button id="zoomInBtn">+</button>
@@ -214,8 +221,9 @@
                 <div id="leaderboardList"></div>
             </div>
         </div>
-        <!-- CHAT SECTION - VISIBLE AT BOTTOM -->
-        <div id="chatContainer">
+        
+        <!-- Chat Overlay - Bottom Left Inside Game -->
+        <div id="chatOverlay">
             <div id="chatMessages">
                 <div class="chat-system">🔔 Welcome! Type a message to chat.</div>
             </div>
