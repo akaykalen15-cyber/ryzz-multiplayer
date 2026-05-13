@@ -30,6 +30,9 @@ const MIN_MAP_SIZE = 4000;
 
 let orbs = [];
 
+// Banned players set
+let bannedPlayers = new Set();
+
 const orbColors = ['#fbbf24', '#22c55e', '#3b82f6', '#a855f7'];
 const orbValues = [100, 200, 350, 500];
 
@@ -256,12 +259,21 @@ io.on('connection', (socket) => {
 
     socket.on('joinGame', (data) => {
         const username = data.username, password = data.password || '';
+        
+        // Check if banned
+        if (bannedPlayers.has(username)) {
+            socket.emit('nameRejected', 'You are banned from this server!');
+            return;
+        }
+        
         const isAdmin = (username === ADMIN_NAME && password === ADMIN_PASSWORD);
         for (let id in players) if (players[id].username === username) { socket.emit('nameRejected', 'Username taken!'); return; }
+        
         players[socket.id] = {
             id: socket.id, username: username, x: Math.random() * MAP_WIDTH, y: Math.random() * MAP_HEIGHT,
             radius: 20, score: 0, level: 1, title: '🍼 Newbie', perks: getPerks(1), isAdmin: isAdmin, kills: 0
         };
+        
         socket.emit('currentOrbs', orbs);
         socket.emit('currentPlayers', players);
         socket.emit('currentBots', bots);
@@ -317,7 +329,8 @@ io.on('connection', (socket) => {
         }
     });
 
-    // 🎮 ADMIN BUTTON HANDLERS
+    // ========== ADMIN BUTTON HANDLERS ==========
+    
     socket.on('adminGivePoints', (points) => {
         const player = players[socket.id];
         if (player && player.isAdmin) {
@@ -354,6 +367,44 @@ io.on('connection', (socket) => {
         if (player && player.isAdmin) {
             generateOrbs(50);
             io.emit('chatMessage', { username: 'System', message: `🟡 Admin spawned 50 extra orbs! Total: ${orbs.length}`, isSystem: true });
+        }
+    });
+
+    // ========== KICK & BAN HANDLERS ==========
+    
+    socket.on('adminKickPlayer', (targetUsername) => {
+        const admin = players[socket.id];
+        if (!admin || !admin.isAdmin) return;
+        
+        for (const id in players) {
+            if (players[id].username === targetUsername && !players[id].isAdmin) {
+                io.to(id).emit('kicked', `You were kicked by admin ${admin.username}`);
+                const targetSocket = io.sockets.sockets.get(id);
+                if (targetSocket) targetSocket.disconnect();
+                delete players[id];
+                io.emit('chatMessage', { username: 'System', message: `${targetUsername} was kicked by admin`, isSystem: true });
+                updateLeaderboard();
+                break;
+            }
+        }
+    });
+
+    socket.on('adminBanPlayer', (targetUsername) => {
+        const admin = players[socket.id];
+        if (!admin || !admin.isAdmin) return;
+        
+        bannedPlayers.add(targetUsername);
+        
+        for (const id in players) {
+            if (players[id].username === targetUsername && !players[id].isAdmin) {
+                io.to(id).emit('banned', `You were banned by admin ${admin.username}`);
+                const targetSocket = io.sockets.sockets.get(id);
+                if (targetSocket) targetSocket.disconnect();
+                delete players[id];
+                io.emit('chatMessage', { username: 'System', message: `${targetUsername} was banned by admin`, isSystem: true });
+                updateLeaderboard();
+                break;
+            }
         }
     });
 
@@ -435,8 +486,10 @@ function updateLeaderboard() {
 
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, '0.0.0.0', () => {
-    console.log(`✅ RYZZ.io server running on port ${PORT}`);
+    console.log(`\n✅ RYZZ.io COMPLETE server running!`);
     console.log(`👑 Admin: ${ADMIN_NAME}`);
+    console.log(`🔨 Kick & Ban enabled!`);
     console.log(`🤖 Bots: ${Object.keys(bots).length}`);
     console.log(`🟡 Orbs: ${orbs.length}`);
+    console.log(`🏆 All-time leaderboard active\n`);
 });
