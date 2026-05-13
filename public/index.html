@@ -238,7 +238,7 @@
             border: 1px solid #fbbf24;
             z-index: 20;
             pointer-events: auto;
-            min-width: 140px;
+            min-width: 150px;
         }
         #adminPanel h4 {
             color: #fbbf24;
@@ -255,7 +255,7 @@
             cursor: pointer;
             font-size: 11px;
             margin: 3px;
-            width: 60px;
+            width: 65px;
         }
         .admin-btn:hover {
             background: #2563eb;
@@ -279,6 +279,16 @@
             gap: 5px;
             justify-content: center;
         }
+        .player-select {
+            background: #1f2937;
+            border: 1px solid #374151;
+            color: white;
+            padding: 4px 6px;
+            border-radius: 6px;
+            font-size: 10px;
+            width: 100%;
+            margin-bottom: 8px;
+        }
     </style>
 </head>
 <body>
@@ -295,7 +305,7 @@
     <div id="gameContainer">
         <canvas id="gameCanvas" width="1200" height="800"></canvas>
         
-        <!-- ADMIN PANEL - Only visible to admin -->
+        <!-- ADMIN PANEL -->
         <div id="adminPanel" class="hidden">
             <h4>👑 ADMIN PANEL</h4>
             <div class="admin-btn-group">
@@ -308,9 +318,16 @@
                 <button class="admin-btn admin-btn-gold" data-points="100000">+100K</button>
             </div>
             <div class="admin-btn-group" style="margin-top: 8px;">
-                <button class="admin-btn admin-btn-danger" id="adminHealBtn">💚 Heal</button>
-                <button class="admin-btn admin-btn-danger" id="adminMaxSizeBtn">💪 Max Size</button>
+                <button class="admin-btn" id="adminHealBtn">💚 Heal</button>
+                <button class="admin-btn" id="adminMaxSizeBtn">💪 Max Size</button>
                 <button class="admin-btn" id="adminSpawnOrbsBtn">🟡 Spawn Orbs</button>
+            </div>
+            <div class="admin-btn-group" style="margin-top: 8px; border-top: 1px solid #374151; padding-top: 8px;">
+                <select id="playerSelect" class="player-select">
+                    <option value="">-- Select Player --</option>
+                </select>
+                <button class="admin-btn admin-btn-danger" id="adminKickBtn">👢 Kick</button>
+                <button class="admin-btn admin-btn-danger" id="adminBanBtn">🔨 Ban</button>
             </div>
         </div>
         
@@ -416,6 +433,7 @@
     const adminNameSpan = document.getElementById('adminName');
     const zoomLevelSpan = document.getElementById('zoomLevel');
     const adminPanel = document.getElementById('adminPanel');
+    const playerSelect = document.getElementById('playerSelect');
     
     bestElement.innerText = formatScore(personalBest);
     
@@ -559,33 +577,60 @@
         if (e.key === 'Enter') sendMessage();
     });
     
-    // ADMIN BUTTON HANDLERS
+    function updatePlayerSelect() {
+        playerSelect.innerHTML = '<option value="">-- Select Player --</option>';
+        for (const id in players) {
+            if (id !== myId && !players[id].isAdmin) {
+                const option = document.createElement('option');
+                option.value = players[id].username;
+                option.textContent = `${players[id].username} (Lvl ${players[id].level})`;
+                playerSelect.appendChild(option);
+            }
+        }
+    }
+    
     function setupAdminButtons() {
-        // Score buttons
         document.querySelectorAll('.admin-btn[data-points]').forEach(btn => {
             btn.addEventListener('click', () => {
                 const points = parseInt(btn.getAttribute('data-points'));
                 socket.emit('adminGivePoints', points);
-                addChatMessage('System', `👑 Admin gave you +${formatScore(points)} points!`, false, true);
+                addChatMessage('System', `👑 Admin gave +${formatScore(points)} points!`, false, true);
             });
         });
         
-        // Heal button
         document.getElementById('adminHealBtn')?.addEventListener('click', () => {
             socket.emit('adminHeal');
-            addChatMessage('System', `💚 Admin healed you to full size!`, false, true);
+            addChatMessage('System', `💚 Admin healed you!`, false, true);
         });
         
-        // Max Size button
         document.getElementById('adminMaxSizeBtn')?.addEventListener('click', () => {
             socket.emit('adminMaxSize');
             addChatMessage('System', `💪 Admin set you to MAX SIZE!`, false, true);
         });
         
-        // Spawn Orbs button
         document.getElementById('adminSpawnOrbsBtn')?.addEventListener('click', () => {
             socket.emit('adminSpawnOrbs');
-            addChatMessage('System', `🟡 Admin spawned extra orbs on the map!`, false, true);
+            addChatMessage('System', `🟡 Admin spawned extra orbs!`, false, true);
+        });
+        
+        document.getElementById('adminKickBtn')?.addEventListener('click', () => {
+            const target = playerSelect.value;
+            if (!target) {
+                addChatMessage('System', `⚠️ Select a player first!`, false, true);
+                return;
+            }
+            socket.emit('adminKickPlayer', target);
+            addChatMessage('System', `👢 Admin kicked ${target}!`, false, true);
+        });
+        
+        document.getElementById('adminBanBtn')?.addEventListener('click', () => {
+            const target = playerSelect.value;
+            if (!target) {
+                addChatMessage('System', `⚠️ Select a player first!`, false, true);
+                return;
+            }
+            socket.emit('adminBanPlayer', target);
+            addChatMessage('System', `🔨 Admin banned ${target}!`, false, true);
         });
     }
     
@@ -632,6 +677,7 @@
     
     socket.on('currentPlayers', (serverPlayers) => {
         players = serverPlayers;
+        updatePlayerSelect();
         for (let id in players) {
             if (players[id].username === usernameInput.value.trim()) {
                 myId = id;
@@ -642,6 +688,7 @@
                     adminNameSpan.className = 'admin-glowing';
                     adminPanel.classList.remove('hidden');
                     setupAdminButtons();
+                    updatePlayerSelect();
                 } else {
                     adminNameSpan.innerText = 'None';
                     adminNameSpan.className = '';
@@ -667,6 +714,7 @@
         for (const id in serverBots) {
             players[id] = { ...serverBots[id], isBot: true };
         }
+        updatePlayerSelect();
     });
     
     socket.on('updateBots', (serverBots) => {
@@ -678,6 +726,7 @@
         for (const id in serverBots) {
             players[id] = { ...serverBots[id], isBot: true };
         }
+        updatePlayerSelect();
     });
     
     socket.on('currentOrbs', (serverOrbs) => {
@@ -692,6 +741,7 @@
     
     socket.on('newPlayer', (playerData) => {
         players[playerData.id] = playerData;
+        updatePlayerSelect();
         addChatMessage('System', `${playerData.username} joined!`, false, true);
     });
     
@@ -706,6 +756,7 @@
         if (players[playerId]) {
             addChatMessage('System', `${players[playerId].username} left`, false, true);
             delete players[playerId];
+            updatePlayerSelect();
         }
     });
     
@@ -731,6 +782,7 @@
             players[data.id].title = data.title;
             players[data.id].perks = data.perks;
             if (data.kills !== undefined) players[data.id].kills = data.kills;
+            updatePlayerSelect();
         }
         if (data.id === myId) {
             if (data.score > currentScore) {
@@ -791,6 +843,7 @@
             adminNameSpan.className = 'admin-glowing';
             adminPanel.classList.remove('hidden');
             setupAdminButtons();
+            updatePlayerSelect();
             addChatMessage('System', '👑 You are ADMIN!', false, true);
         }
     });
@@ -801,6 +854,11 @@
     });
     
     socket.on('kicked', (msg) => {
+        alert(msg);
+        window.location.reload();
+    });
+    
+    socket.on('banned', (msg) => {
         alert(msg);
         window.location.reload();
     });
