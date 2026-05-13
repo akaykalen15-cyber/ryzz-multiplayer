@@ -210,7 +210,6 @@
             color: #888;
             pointer-events: none;
         }
-        /* Glowing name in leaderboard */
         .leaderboard-admin {
             color: #ffffff;
             font-weight: bold;
@@ -241,7 +240,7 @@
             </div>
             <div class="stats">🎯 Lvl: <span id="levelValue">1</span> <span id="levelTitle"></span></div>
             <div class="stats">⚡ <span id="perksValue">0%</span></div>
-            <div class="stats">👑 Admin: <span id="adminName" class="admin-glowing">RYZZ</span></div>
+            <div class="stats">👑 Admin: <span id="adminName"></span></div>
             <div id="zoomControl">
                 <span>🔍</span>
                 <button id="zoomOutBtn">-</button>
@@ -311,6 +310,7 @@
     let collectingOrbIds = new Set();
     let lastLevel = 1;
     
+    // DOM elements
     const joinScreen = document.getElementById('joinScreen');
     const gameScreen = document.getElementById('gameScreen');
     const usernameInput = document.getElementById('usernameInput');
@@ -475,6 +475,7 @@
         if (e.key === 'Enter') sendMessage();
     });
     
+    // JOIN BUTTON - WORKING
     joinBtn.onclick = () => {
         const username = usernameInput.value.trim();
         const password = passwordInput.value;
@@ -522,11 +523,13 @@
             if (players[id].username === usernameInput.value.trim()) {
                 myId = id;
                 myPlayer = players[id];
-                adminNameSpan.innerText = myPlayer.isAdmin ? myPlayer.username : 'None';
+                // Set admin name display with glow if admin
                 if (myPlayer.isAdmin) {
-                    adminNameSpan.classList.add('admin-glowing');
+                    adminNameSpan.innerText = myPlayer.username;
+                    adminNameSpan.className = 'admin-glowing';
                 } else {
-                    adminNameSpan.classList.remove('admin-glowing');
+                    adminNameSpan.innerText = myPlayer.isAdmin ? myPlayer.username : 'None';
+                    adminNameSpan.className = '';
                 }
                 updateSizeDisplay(myPlayer.radius);
                 currentLevel = myPlayer.level || 1;
@@ -668,7 +671,7 @@
         if (isAdmin && myPlayer) {
             myPlayer.isAdmin = true;
             adminNameSpan.innerText = myPlayer.username;
-            adminNameSpan.classList.add('admin-glowing');
+            adminNameSpan.className = 'admin-glowing';
             addChatMessage('System', '👑 You are ADMIN!', false, true);
         }
     });
@@ -843,7 +846,6 @@
                 ctx.font = `${Math.max(10, 12 * zoom)}px Arial`;
                 const levelBadge = p.level ? ` [Lvl ${p.level}]` : '';
                 const displayName = p.isBot ? `🤖 ${p.username}${levelBadge}` : `${p.username}${levelBadge}`;
-                // Glowing name for admin player on canvas
                 if (p.isAdmin) {
                     ctx.shadowBlur = 8 * zoom;
                     ctx.shadowColor = '#ffffff';
@@ -866,4 +868,5 @@
         if (myColor === 'rainbow') {
             const gradient = ctx.createLinearGradient(myScreenX - myRadius, myScreenY - myRadius, myScreenX + myRadius, myScreenY + myRadius);
             gradient.addColorStop(0, '#ff0000');
-            gradient.addColorStop(0.
+            gradient.addColorStop(0.2, '#ffff00');
+           
