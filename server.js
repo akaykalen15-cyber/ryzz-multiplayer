@@ -33,7 +33,7 @@ let bannedPlayers = new Set();
 
 const orbColors = ['#fbbf24', '#22c55e', '#3b82f6', '#a855f7'];
 const orbValues = [100, 200, 350, 500];
-const botNames = ['Alpha', 'Beta', 'Gamma', 'Delta', 'Echo', 'Zeta', 'Theta', 'Sigma', 'Nova', 'Rex'];
+const botNames = ['Alpha', 'Beta', 'Gamma', 'Delta', 'Echo', 'Zeta', 'Theta', 'Sigma', 'Nova', 'Rex', 'Titan', 'Goliath'];
 
 // Load all-time leaderboard
 let allTimeTop10 = [];
@@ -197,30 +197,53 @@ function generateBot() {
     };
 }
 
+// Start with more orbs (600) and bots (8)
 generateOrbs(600);
 for (let i = 0; i < 8; i++) generateBot();
 
+// Update map size every second
 setInterval(() => updateMapSize(), 1000);
-setInterval(() => { if (orbs.length < 400) generateOrbs(80); else generateOrbs(25); }, 800);
-setInterval(() => { if (Object.keys(bots).length < 6) generateBot(); }, 15000);
 
-// Bot AI
+// Instant orb respawn - keep map full
+setInterval(() => {
+    if (orbs.length < 400) {
+        generateOrbs(80);
+        console.log(`Low on orbs (${orbs.length}), generated 80 more`);
+    } else {
+        generateOrbs(20);
+    }
+}, 800);
+
+// Bot respawn
+setInterval(() => {
+    const botCount = Object.keys(bots).length;
+    if (botCount < 6) {
+        generateBot();
+        console.log(`Low bots (${botCount}), spawned new one`);
+    }
+}, 15000);
+
+// Bot AI movement
 setInterval(() => {
     for (const id in bots) {
         const bot = bots[id];
+        
         let nearestOrb = null, nearestDist = Infinity;
         for (const orb of orbs) {
             const dist = Math.hypot(bot.x - orb.x, bot.y - orb.y);
             if (dist < nearestDist) { nearestDist = dist; nearestOrb = orb; }
         }
+        
         let nearestPlayer = null, playerDist = Infinity;
         for (const pid in players) {
             const dist = Math.hypot(bot.x - players[pid].x, bot.y - players[pid].y);
             if (dist < playerDist) { playerDist = dist; nearestPlayer = players[pid]; }
         }
+        
         let moveX = 0, moveY = 0;
         const botSpeed = 3.5 * (bot.perks?.speedMultiplier || 1);
-        if (nearestPlayer && playerDist < 250) {
+        
+        if (nearestPlayer && playerDist < 350) {
             if (bot.radius > nearestPlayer.radius + 10) {
                 const dx = nearestPlayer.x - bot.x, dy = nearestPlayer.y - bot.y, len = playerDist;
                 if (len > 0) { moveX = (dx / len) * botSpeed; moveY = (dy / len) * botSpeed; }
@@ -229,16 +252,20 @@ setInterval(() => {
                 if (len > 0) { moveX = (dx / len) * 5; moveY = (dy / len) * 5; }
             }
         }
+        
         if (moveX === 0 && moveY === 0 && nearestOrb) {
             const dx = nearestOrb.x - bot.x, dy = nearestOrb.y - bot.y, len = Math.hypot(dx, dy);
             if (len > 0) { moveX = (dx / len) * 3; moveY = (dy / len) * 3; }
         }
+        
         moveX += (Math.random() - 0.5) * 1.5;
         moveY += (Math.random() - 0.5) * 1.5;
+        
         bot.x += moveX; bot.y += moveY;
         bot.x = Math.min(Math.max(bot.x, bot.radius + 5), MAP_WIDTH - bot.radius - 5);
         bot.y = Math.min(Math.max(bot.y, bot.radius + 5), MAP_HEIGHT - bot.radius - 5);
         
+        // Bot collects orbs
         for (let i = 0; i < orbs.length; i++) {
             const orb = orbs[i];
             if (Math.hypot(bot.x - orb.x, bot.y - orb.y) < bot.radius + orb.radius) {
@@ -247,6 +274,7 @@ setInterval(() => {
                 orbs.splice(i, 1); i--;
             }
         }
+        
         const newLevel = getLevel(bot.score);
         if (newLevel !== bot.level) {
             bot.level = newLevel;
@@ -404,7 +432,8 @@ io.on('connection', (socket) => {
         }
     });
 
-    // ADMIN BUTTON HANDLERS
+    // ========== ADMIN BUTTON HANDLERS ==========
+    
     socket.on('adminGivePoints', (points) => {
         const player = players[socket.id];
         if (player && player.isAdmin) {
@@ -448,9 +477,12 @@ io.on('connection', (socket) => {
         }
     });
 
+    // ========== KICK & BAN HANDLERS ==========
+    
     socket.on('adminKickPlayer', (targetUsername) => {
         const admin = players[socket.id];
         if (!admin || !admin.isAdmin) return;
+        
         for (const id in players) {
             if (players[id].username === targetUsername && !players[id].isAdmin) {
                 io.to(id).emit('kicked', `Kicked by admin ${admin.username}`);
@@ -467,7 +499,9 @@ io.on('connection', (socket) => {
     socket.on('adminBanPlayer', (targetUsername) => {
         const admin = players[socket.id];
         if (!admin || !admin.isAdmin) return;
+        
         bannedPlayers.add(targetUsername);
+        
         for (const id in players) {
             if (players[id].username === targetUsername && !players[id].isAdmin) {
                 io.to(id).emit('banned', `Banned by admin ${admin.username}`);
@@ -559,10 +593,11 @@ function updateLeaderboard() {
 
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, '0.0.0.0', () => {
-    console.log(`\n✅ RYZZ.io INFINITE server running!`);
+    console.log(`\n✅ RYZZ.io COMPLETE server running!`);
     console.log(`📈 Infinite levels & perks enabled!`);
     console.log(`📏 Infinite size growth!`);
     console.log(`🗺️ Dynamic map (grows with players)`);
+    console.log(`🟡 Orbs spawn everywhere on the map`);
     console.log(`👑 Admin: ${ADMIN_NAME}`);
     console.log(`🤖 Bots: ${Object.keys(bots).length}`);
     console.log(`🟡 Orbs: ${orbs.length}\n`);
