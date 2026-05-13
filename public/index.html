@@ -78,7 +78,7 @@
             color: white;
             font-size: 14px;
         }
-        #leaderboard { min-width: 180px; }
+        #leaderboard { min-width: 200px; }
         #leaderboard h4 { margin-bottom: 5px; color: #fbbf24; }
         #orbLegend {
             background: #1f2937;
@@ -160,6 +160,11 @@
         .chat-admin { color: #fbbf24; font-weight: bold; }
         .chat-system { color: #ef4444; font-style: italic; }
         .hidden { display: none; }
+        .admin-bold {
+            font-weight: bold;
+            color: #ffffff;
+            text-shadow: 0 0 2px #ffffff;
+        }
     </style>
 </head>
 <body>
@@ -177,7 +182,7 @@
         <canvas id="gameCanvas" width="1200" height="800"></canvas>
         <div id="ui">
             <div class="stats">🎯 Score: <span id="scoreValue">0</span></div>
-            <div class="stats">👑 Admin: <span id="adminName"></span></div>
+            <div class="stats">👑 Admin: <span id="adminName" class="admin-bold"></span></div>
             <div id="orbLegend">
                 <div><span class="orb-dot" style="background: #fbbf24;"></span> 10</div>
                 <div><span class="orb-dot" style="background: #22c55e;"></span> 25</div>
@@ -309,24 +314,64 @@
                 if (myPlayer.isAdmin) {
                     addChatMessage('System', '👑 You are ADMIN! Type /help', true);
                     adminNameSpan.innerHTML = myPlayer.username;
+                    adminNameSpan.style.fontWeight = 'bold';
+                    adminNameSpan.style.color = '#ffffff';
+                    adminNameSpan.style.textShadow = '0 0 2px #ffffff';
+                } else {
+                    adminNameSpan.innerHTML = 'None';
                 }
             }
         }
     });
+    
+    // 🤖 Handle bots from server
+    socket.on('currentBots', (serverBots) => {
+        for (const id in serverBots) {
+            const bot = serverBots[id];
+            players[id] = {
+                ...bot,
+                isBot: true
+            };
+        }
+    });
+    
+    socket.on('updateBots', (serverBots) => {
+        // Remove old bots
+        for (const id in players) {
+            if (players[id].isBot && !serverBots[id]) {
+                delete players[id];
+            }
+        }
+        // Add/update bots
+        for (const id in serverBots) {
+            const bot = serverBots[id];
+            players[id] = {
+                ...bot,
+                isBot: true
+            };
+        }
+    });
+    
     socket.on('currentOrbs', (serverOrbs) => { orbs = serverOrbs; });
     socket.on('nameRejected', (msg) => { alert(msg); window.location.reload(); });
     socket.on('newPlayer', (playerData) => { players[playerData.id] = playerData; addChatMessage('System', `${playerData.username} joined!`, true); });
     socket.on('playerMoved', (playerData) => { if (players[playerData.id]) { players[playerData.id].x = playerData.x; players[playerData.id].y = playerData.y; } });
     socket.on('playerDisconnected', (playerId) => { if (players[playerId]) { addChatMessage('System', `${players[playerId].username} left`, true); delete players[playerId]; } });
+    
     socket.on('leaderboardUpdate', (leaderboard) => {
         let html = '';
         for (let i = 0; i < leaderboard.length; i++) {
             const p = leaderboard[i];
             const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : '  ';
-            html += `<div>${medal} ${p.username} - ${p.score}</div>`;
+            if (p.username === 'RYZZ') {
+                html += `<div>${medal} <strong style="color:#ffffff;text-shadow:0 0 2px #fff;">${p.username}</strong> - ${p.score}</div>`;
+            } else {
+                html += `<div>${medal} ${p.username} - ${p.score}</div>`;
+            }
         }
         leaderboardList.innerHTML = html;
     });
+    
     socket.on('scoreUpdate', (data) => {
         if (players[data.id]) { players[data.id].score = data.score; players[data.id].radius = data.radius; }
         if (data.id === myId) { currentScore = data.score; scoreElement.innerText = currentScore; if (myPlayer) myPlayer.radius = data.radius; }
@@ -376,33 +421,32 @@
         }
     }
     
-    // SIMPLE PLAYER EATING - BIGGER ALWAYS WINS
+    // Player eating collision
     function checkPlayerCollisions() {
         if (!myPlayer) return;
         
         for (const id in players) {
             if (id === myId) continue;
             const other = players[id];
+            if (other.isBot && other.isBot === true) {
+                // Bot collision handled by server, just skip to avoid double processing
+                continue;
+            }
             
             const dist = Math.hypot(myPlayer.x - other.x, myPlayer.y - other.y);
             const combinedRadius = myPlayer.radius + other.radius;
             
             if (dist < combinedRadius) {
-                // BIGGER EATS SMALLER - plain and simple
                 if (myPlayer.radius > other.radius) {
-                    // I EAT THEM
                     socket.emit('eatPlayer', id);
                     addChatMessage('System', `🍽️ You ate ${other.username}!`, true);
                 } else if (other.radius > myPlayer.radius) {
-                    // THEY EAT ME
                     socket.emit('eatPlayer', myId);
                     addChatMessage('System', `💀 You were eaten by ${other.username}!`, true);
-                    // Respawn at random safe location
                     myPlayer.x = Math.random() * 2200 + 100;
                     myPlayer.y = Math.random() * 1400 + 100;
                     socket.emit('playerMovement', { x: myPlayer.x, y: myPlayer.y });
                 } else {
-                    // Same size - gentle push apart
                     const angle = Math.atan2(myPlayer.y - other.y, myPlayer.x - other.x);
                     myPlayer.x += Math.cos(angle) * 15;
                     myPlayer.y += Math.sin(angle) * 15;
@@ -446,7 +490,7 @@
             }
         }
         
-        // Draw other players
+        // Draw all players (including bots)
         for (const id in players) {
             if (id === myId) continue;
             const p = players[id];
@@ -456,21 +500,25 @@
             if (screenX + radius > 0 && screenX - radius < canvas.width && screenY + radius > 0 && screenY - radius < canvas.height) {
                 ctx.beginPath();
                 ctx.arc(screenX, screenY, radius, 0, Math.PI * 2);
-                // Color based on size comparison to you
-                if (p.radius > myPlayer.radius) {
-                    ctx.fillStyle = '#ff4444'; // Bigger = dark red (danger)
+                // Bots are purple, players are red
+                if (p.isBot) {
+                    ctx.fillStyle = '#a855f7'; // Purple for bots
+                } else if (p.radius > myPlayer.radius) {
+                    ctx.fillStyle = '#ff4444'; // Bigger player = dark red
                 } else {
-                    ctx.fillStyle = '#ef4444'; // Smaller = normal red
+                    ctx.fillStyle = '#ef4444'; // Smaller player = normal red
                 }
                 ctx.fill();
                 ctx.fillStyle = 'white';
                 ctx.font = `${Math.max(10, 10 * zoom)}px Arial`;
-                ctx.fillText(p.username, screenX - (20 * zoom), screenY - (15 * zoom));
-                // Show size difference
-                if (p.radius > myPlayer.radius * 1.2) {
+                const displayName = p.isBot ? '🤖 ' + p.username : p.username;
+                ctx.fillText(displayName, screenX - (25 * zoom), screenY - (15 * zoom));
+                
+                // Danger indicator for bots that are bigger
+                if (p.isBot && p.radius > myPlayer.radius * 1.2) {
                     ctx.fillStyle = '#ff0000';
-                    ctx.font = `${12 * zoom}px Arial`;
-                    ctx.fillText('⚠️', screenX + 10, screenY - 10);
+                    ctx.font = `${14 * zoom}px Arial`;
+                    ctx.fillText('⚠️', screenX + 15, screenY - 10);
                 }
             }
         }
