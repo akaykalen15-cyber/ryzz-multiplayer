@@ -621,3 +621,331 @@
                 killsElement.innerText = kills;
             }
             if (myPlayer) {
+                myPlayer.radius = data.radius;
+                updateSizeDisplay(data.radius);
+            }
+            if (data.level !== lastLevel) {
+                lastLevel = data.level;
+                currentLevel = data.level;
+                currentTitle = data.title;
+                currentPerks = data.perks;
+                levelElement.innerText = data.level;
+                levelTitleElement.innerText = data.title;
+                perksElement.innerHTML = formatPerks(data.perks);
+                addChatMessage('System', `🎉 LEVEL UP! You reached ${data.title} (Level ${data.level})!`, false, true);
+            } else if (data.perks) {
+                currentPerks = data.perks;
+                perksElement.innerHTML = formatPerks(data.perks);
+            }
+        }
+    });
+    
+    socket.on('orbCollected', (orbId) => {
+        collectingOrbIds.delete(orbId);
+        const index = orbs.findIndex(o => o.id === orbId);
+        if (index !== -1) {
+            orbs.splice(index, 1);
+        }
+    });
+    
+    socket.on('orbCollectionFailed', (orbId) => {
+        collectingOrbIds.delete(orbId);
+    });
+    
+    socket.on('chatMessage', (data) => {
+        addChatMessage(data.username, data.message, data.isAdmin);
+    });
+    
+    socket.on('adminConfirm', (isAdmin) => {
+        if (isAdmin && myPlayer) {
+            myPlayer.isAdmin = true;
+            isAdmin = true;
+            adminNameSpan.innerText = myPlayer.username;
+            adminNameSpan.className = 'admin-glowing';
+            adminPanel.classList.remove('hidden');
+            setupAdminButtons();
+            updatePlayerSelect();
+            addChatMessage('System', '👑 You are ADMIN!', false, true);
+        }
+    });
+    
+    socket.on('nameRejected', (msg) => {
+        alert(msg);
+        window.location.reload();
+    });
+    
+    socket.on('kicked', (msg) => {
+        alert(msg);
+        window.location.reload();
+    });
+    
+    socket.on('banned', (msg) => {
+        alert(msg);
+        window.location.reload();
+    });
+    
+    socket.on('deathMessage', (data) => {
+        if (data.victimId === myId) {
+            addChatMessage('System', `💀 You were eaten by ${data.killerName}!`, false, true);
+        }
+    });
+    
+    // 🚀 NEW FASTER MOVEMENT FUNCTION
+    function movePlayer() {
+        if (!myPlayer) return;
+        
+        let targetX = myPlayer.x;
+        let targetY = myPlayer.y;
+        
+        if (useMouse && mouseX !== null && mouseY !== null) {
+            targetX = mouseX;
+            targetY = mouseY;
+        } else {
+            const move = getMoveVector();
+            if (move.x !== 0 || move.y !== 0) {
+                // NEW SPEED FORMULA: Much faster at all sizes
+                // Speed = 8 / (radius/40) - minimum 2.5, maximum 8
+                let rawSpeed = 8 / (myPlayer.radius / 40);
+                let baseSpeed = Math.min(8, Math.max(2.5, rawSpeed));
+                const speedMultiplier = currentPerks?.speedMultiplier || 1;
+                const speed = baseSpeed * speedMultiplier;
+                targetX = myPlayer.x + move.x * speed;
+                targetY = myPlayer.y + move.y * speed;
+            }
+        }
+        
+        const dx = targetX - myPlayer.x;
+        const dy = targetY - myPlayer.y;
+        const distance = Math.hypot(dx, dy);
+        if (distance > 1) {
+            // NEW SPEED FORMULA
+            let rawSpeed = 8 / (myPlayer.radius / 40);
+            let baseSpeed = Math.min(8, Math.max(2.5, rawSpeed));
+            const speedMultiplier = currentPerks?.speedMultiplier || 1;
+            const speed = baseSpeed * speedMultiplier;
+            myPlayer.x += (dx / distance) * speed;
+            myPlayer.y += (dy / distance) * speed;
+        }
+        
+        myPlayer.x = Math.min(Math.max(myPlayer.x, myPlayer.radius + 5), MAP_WIDTH - myPlayer.radius - 5);
+        myPlayer.y = Math.min(Math.max(myPlayer.y, myPlayer.radius + 5), MAP_HEIGHT - myPlayer.radius - 5);
+        socket.emit('playerMovement', { x: myPlayer.x, y: myPlayer.y });
+    }
+    
+    function checkCollisions() {
+        if (!myPlayer) return;
+        
+        for (let i = 0; i < orbs.length; i++) {
+            const orb = orbs[i];
+            if (collectingOrbIds.has(orb.id)) continue;
+            
+            const dist = Math.hypot(myPlayer.x - orb.x, myPlayer.y - orb.y);
+            if (dist < myPlayer.radius + orb.radius) {
+                collectingOrbIds.add(orb.id);
+                socket.emit('collectOrb', orb.id);
+                orbs.splice(i, 1);
+                currentScore += orb.value;
+                scoreElement.innerText = formatScore(currentScore);
+                if (myPlayer) myPlayer.score = currentScore;
+                break;
+            }
+        }
+        
+        for (const id in players) {
+            if (id === myId) continue;
+            const other = players[id];
+            if (other.isBot) continue;
+            
+            const dist = Math.hypot(myPlayer.x - other.x, myPlayer.y - other.y);
+            if (dist < myPlayer.radius + other.radius) {
+                if (myPlayer.radius > other.radius && !other.isAdmin) {
+                    kills++;
+                    killsElement.innerText = kills;
+                    socket.emit('eatPlayer', id);
+                    addChatMessage('System', `🍽️ You ate ${other.username}! (${kills} kills)`, false, true);
+                } else if (other.radius > myPlayer.radius) {
+                    socket.emit('eatPlayer', myId);
+                    myPlayer.x = Math.random() * (MAP_WIDTH - 400) + 200;
+                    myPlayer.y = Math.random() * (MAP_HEIGHT - 400) + 200;
+                    socket.emit('playerMovement', { x: myPlayer.x, y: myPlayer.y });
+                } else {
+                    const angle = Math.atan2(myPlayer.y - other.y, myPlayer.x - other.x);
+                    myPlayer.x += Math.cos(angle) * 20;
+                    myPlayer.y += Math.sin(angle) * 20;
+                }
+            }
+        }
+    }
+    
+    function updateCamera() {
+        if (!myPlayer) return;
+        const effectiveWidth = canvas.width / zoom;
+        const effectiveHeight = canvas.height / zoom;
+        cameraX = myPlayer.x - effectiveWidth / 2;
+        cameraY = myPlayer.y - effectiveHeight / 2;
+        cameraX = Math.min(Math.max(cameraX, 0), MAP_WIDTH - effectiveWidth);
+        cameraY = Math.min(Math.max(cameraY, 0), MAP_HEIGHT - effectiveHeight);
+    }
+    
+    function draw() {
+        if (!myPlayer) return;
+        updateCamera();
+        
+        ctx.fillStyle = '#0a0f1e';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        
+        let gridSize = 200;
+        if (zoom < 0.3) gridSize = 500;
+        if (zoom < 0.15) gridSize = 1000;
+        if (zoom > 1.5) gridSize = 100;
+        
+        ctx.strokeStyle = '#1a2340';
+        ctx.lineWidth = 1;
+        const startX = Math.floor(cameraX / gridSize) * gridSize;
+        const startY = Math.floor(cameraY / gridSize) * gridSize;
+        for (let x = startX; x < cameraX + canvas.width / zoom; x += gridSize) {
+            const screenX = (x - cameraX) * zoom;
+            ctx.beginPath();
+            ctx.moveTo(screenX, 0);
+            ctx.lineTo(screenX, canvas.height);
+            ctx.stroke();
+        }
+        for (let y = startY; y < cameraY + canvas.height / zoom; y += gridSize) {
+            const screenY = (y - cameraY) * zoom;
+            ctx.beginPath();
+            ctx.moveTo(0, screenY);
+            ctx.lineTo(canvas.width, screenY);
+            ctx.stroke();
+        }
+        
+        for (const orb of orbs) {
+            const screenX = (orb.x - cameraX) * zoom;
+            const screenY = (orb.y - cameraY) * zoom;
+            const radius = orb.radius * zoom;
+            if (screenX + radius > 0 && screenX - radius < canvas.width &&
+                screenY + radius > 0 && screenY - radius < canvas.height) {
+                ctx.beginPath();
+                ctx.arc(screenX, screenY, radius, 0, Math.PI * 2);
+                ctx.fillStyle = orb.color;
+                ctx.fill();
+                if (orb.value >= 350) {
+                    ctx.shadowBlur = 6 * zoom;
+                    ctx.shadowColor = orb.color;
+                    ctx.fill();
+                    ctx.shadowBlur = 0;
+                }
+            }
+        }
+        
+        for (const id in players) {
+            if (id === myId) continue;
+            const p = players[id];
+            const screenX = (p.x - cameraX) * zoom;
+            const screenY = (p.y - cameraY) * zoom;
+            const radius = p.radius * zoom;
+            if (screenX + radius > 0 && screenX - radius < canvas.width &&
+                screenY + radius > 0 && screenY - radius < canvas.height) {
+                ctx.beginPath();
+                ctx.arc(screenX, screenY, radius, 0, Math.PI * 2);
+                if (p.isBot) ctx.fillStyle = '#a855f7';
+                else if (p.isAdmin) ctx.fillStyle = '#fbbf24';
+                else if (p.radius > myPlayer.radius) ctx.fillStyle = '#ff4444';
+                else ctx.fillStyle = '#ef4444';
+                ctx.fill();
+                ctx.fillStyle = 'white';
+                ctx.font = `${Math.max(10, 12 * zoom)}px Arial`;
+                const levelBadge = p.level ? ` [Lvl ${p.level}]` : '';
+                const displayName = p.isBot ? `🤖 ${p.username}${levelBadge}` : `${p.username}${levelBadge}`;
+                if (p.isAdmin) {
+                    ctx.shadowBlur = 8 * zoom;
+                    ctx.shadowColor = '#ffffff';
+                    ctx.fillStyle = '#ffffff';
+                    ctx.fillText(displayName, screenX - 30 * zoom, screenY - 15 * zoom);
+                    ctx.shadowBlur = 0;
+                } else {
+                    ctx.fillText(displayName, screenX - 30 * zoom, screenY - 15 * zoom);
+                }
+                if (p.isBot && p.radius > 100) {
+                    ctx.fillStyle = '#ff0000';
+                    ctx.font = `${12 * zoom}px Arial`;
+                    ctx.fillText('⚠️ GIANT ⚠️', screenX - 30 * zoom, screenY - 25 * zoom);
+                }
+            }
+        }
+        
+        const myScreenX = (myPlayer.x - cameraX) * zoom;
+        const myScreenY = (myPlayer.y - cameraY) * zoom;
+        const myRadius = myPlayer.radius * zoom;
+        ctx.beginPath();
+        ctx.arc(myScreenX, myScreenY, myRadius, 0, Math.PI * 2);
+        
+        const myColor = getCellColor(currentLevel);
+        if (myColor === 'rainbow' || myColor === 'rainbow_fast') {
+            const gradient = ctx.createLinearGradient(myScreenX - myRadius, myScreenY - myRadius, myScreenX + myRadius, myScreenY + myRadius);
+            gradient.addColorStop(0, '#ff0000');
+            gradient.addColorStop(0.2, '#ffff00');
+            gradient.addColorStop(0.4, '#00ff00');
+            gradient.addColorStop(0.6, '#00ffff');
+            gradient.addColorStop(0.8, '#0000ff');
+            gradient.addColorStop(1, '#ff00ff');
+            ctx.fillStyle = gradient;
+        } else {
+            ctx.fillStyle = myColor;
+        }
+        ctx.fill();
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 3 * zoom;
+        ctx.stroke();
+        
+        ctx.fillStyle = '#ffffff';
+        ctx.font = `bold ${Math.max(12, myRadius * 0.5)}px Arial`;
+        if (myPlayer.isAdmin) {
+            ctx.shadowBlur = 10 * zoom;
+            ctx.shadowColor = '#ffffff';
+            ctx.fillText(`${myPlayer.username} [Lvl ${currentLevel}]`, myScreenX - 35 * zoom, myScreenY - 12 * zoom);
+            ctx.shadowBlur = 0;
+            ctx.fillStyle = '#fbbf24';
+            ctx.font = `${Math.max(12, 16 * zoom)}px Arial`;
+            ctx.fillText('👑', myScreenX + 15 * zoom, myScreenY - 15 * zoom);
+        } else {
+            ctx.fillText(`${myPlayer.username} [Lvl ${currentLevel}]`, myScreenX - 35 * zoom, myScreenY - 12 * zoom);
+        }
+        
+        if (currentLevel >= 10) {
+            ctx.shadowBlur = 12 * zoom;
+            ctx.shadowColor = '#fbbf24';
+            ctx.fill();
+            ctx.shadowBlur = 0;
+        }
+        
+        if (currentLevel >= 15) {
+            ctx.beginPath();
+            ctx.arc(myScreenX, myScreenY, myRadius + 3 * zoom, 0, Math.PI * 2);
+            ctx.strokeStyle = '#a855f7';
+            ctx.lineWidth = 2 * zoom;
+            ctx.stroke();
+        }
+        if (currentLevel >= 20) {
+            ctx.beginPath();
+            ctx.arc(myScreenX, myScreenY, myRadius + 6 * zoom, 0, Math.PI * 2);
+            ctx.strokeStyle = '#fbbf24';
+            ctx.lineWidth = 2 * zoom;
+            ctx.stroke();
+        }
+        
+        for (const id in players) {
+            if (id === myId) continue;
+            const p = players[id];
+            if (p.radius > myPlayer.radius * 2) {
+                const dist = Math.hypot(myPlayer.x - p.x, myPlayer.y - p.y);
+                if (dist < 400) {
+                    ctx.fillStyle = '#ff0000';
+                    ctx.font = `${18 * zoom}px Arial`;
+                    ctx.fillText('⚠️ GIANT NEARBY! RUN! ⚠️', myScreenX - 70 * zoom, myScreenY - 50 * zoom);
+                }
+            }
+        }
+    }
+</script>
+</body>
+</html>
