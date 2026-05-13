@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>RYZZ.io - WASD Movement</title>
+    <title>RYZZ.io - Level System</title>
     <style>
         * {
             margin: 0;
@@ -88,7 +88,7 @@
             font-weight: bold;
         }
         #leaderboard {
-            min-width: 160px;
+            min-width: 180px;
         }
         #leaderboard h4 {
             margin-bottom: 4px;
@@ -99,6 +99,9 @@
             max-height: 100px;
             overflow-y: auto;
             font-size: 11px;
+        }
+        #leaderboardList div {
+            margin: 2px 0;
         }
         #zoomControl button {
             background: #3b82f6;
@@ -208,6 +211,14 @@
             color: #888;
             pointer-events: none;
         }
+        .level-up {
+            animation: levelFlash 0.5s ease-out;
+        }
+        @keyframes levelFlash {
+            0% { text-shadow: 0 0 0px #fbbf24; }
+            50% { text-shadow: 0 0 20px #fbbf24; }
+            100% { text-shadow: 0 0 0px #fbbf24; }
+        }
     </style>
 </head>
 <body>
@@ -229,6 +240,7 @@
             <div class="stats">📏 Size: <span id="sizeValue">20</span>
                 <div id="sizeBarContainer"><div id="sizeBar"></div></div>
             </div>
+            <div class="stats">🎯 Lvl: <span id="levelValue">1</span> <span id="levelTitle">🍼 Newbie</span></div>
             <div class="stats">👑 Admin: <span id="adminName"></span></div>
             <div id="zoomControl">
                 <span>🔍</span>
@@ -246,6 +258,7 @@
         <div id="chatOverlay">
             <div id="chatMessages">
                 <div class="chat-system">🔔 Welcome! WASD or Arrow keys to move. Mouse to aim (optional).</div>
+                <div class="chat-system">🎯 Reach higher levels to evolve your cell!</div>
             </div>
             <div id="chatInputArea">
                 <input type="text" id="chatInput" placeholder="Type a message..." maxlength="100" autocomplete="off">
@@ -273,10 +286,11 @@
     let orbs = [];
     let currentScore = 0;
     let currentSize = 20;
+    let currentLevel = 1;
+    let currentTitle = '🍼 Newbie';
     
     let cameraX = 0, cameraY = 0;
     
-    // WASD + Arrow key movement
     let moveDirection = { x: 0, y: 0 };
     let mouseX = null, mouseY = null;
     let useMouse = true;
@@ -289,6 +303,7 @@
     let MAP_HEIGHT = 4000;
     
     let collectingOrbIds = new Set();
+    let lastLevel = 1;
     
     // DOM elements
     const joinScreen = document.getElementById('joinScreen');
@@ -300,6 +315,8 @@
     const scoreElement = document.getElementById('scoreValue');
     const sizeElement = document.getElementById('sizeValue');
     const sizeBar = document.getElementById('sizeBar');
+    const levelElement = document.getElementById('levelValue');
+    const levelTitleElement = document.getElementById('levelTitle');
     const leaderboardList = document.getElementById('leaderboardList');
     const chatMessages = document.getElementById('chatMessages');
     const chatInput = document.getElementById('chatInput');
@@ -307,11 +324,23 @@
     const adminNameSpan = document.getElementById('adminName');
     const zoomLevelSpan = document.getElementById('zoomLevel');
     
-    // Keyboard state
-    const keys = {
-        ArrowUp: false, ArrowDown: false, ArrowLeft: false, ArrowRight: false,
-        w: false, s: false, a: false, d: false
-    };
+    // Format score with K, M, B
+    function formatScore(score) {
+        if (score >= 1_000_000_000) return (score / 1_000_000_000).toFixed(1) + 'B';
+        if (score >= 1_000_000) return (score / 1_000_000).toFixed(1) + 'M';
+        if (score >= 1_000) return (score / 1_000).toFixed(1) + 'K';
+        return score.toString();
+    }
+    
+    // Get cell color based on level
+    function getCellColor(level) {
+        if (level >= 20) return 'rainbow';
+        if (level >= 15) return '#a855f7';
+        if (level >= 10) return '#f97316';
+        if (level >= 7) return '#fbbf24';
+        if (level >= 4) return '#60a5fa';
+        return '#3b82f6';
+    }
     
     function updateSizeDisplay(radius) {
         currentSize = Math.floor(radius);
@@ -338,7 +367,12 @@
         setZoom(e.deltaY < 0 ? zoom + 0.1 : zoom - 0.1);
     });
     
-    // Keyboard event listeners
+    // Keyboard state
+    const keys = {
+        ArrowUp: false, ArrowDown: false, ArrowLeft: false, ArrowRight: false,
+        w: false, s: false, a: false, d: false
+    };
+    
     window.addEventListener('keydown', (e) => {
         const key = e.key;
         if (keys.hasOwnProperty(key)) {
@@ -346,7 +380,6 @@
             useMouse = false;
             e.preventDefault();
         }
-        // WASD lowercase handling
         if (key === 'w') keys.w = true;
         if (key === 'a') keys.a = true;
         if (key === 's') keys.s = true;
@@ -364,7 +397,6 @@
         if (key === 'd') keys.d = false;
     });
     
-    // Mouse movement - only when mouse moves
     canvas.addEventListener('mousemove', (e) => {
         useMouse = true;
         const rect = canvas.getBoundingClientRect();
@@ -381,20 +413,15 @@
     
     function getMoveVector() {
         let moveX = 0, moveY = 0;
-        
-        // Arrow keys
         if (keys.ArrowUp || keys.w) moveY -= 1;
         if (keys.ArrowDown || keys.s) moveY += 1;
         if (keys.ArrowLeft || keys.a) moveX -= 1;
         if (keys.ArrowRight || keys.d) moveX += 1;
-        
-        // Normalize diagonal movement
         if (moveX !== 0 || moveY !== 0) {
             const len = Math.hypot(moveX, moveY);
             moveX /= len;
             moveY /= len;
         }
-        
         return { x: moveX, y: moveY };
     }
     
@@ -451,7 +478,7 @@
         gameLoop();
     };
     
-    // Socket events (same as before)
+    // Socket events
     socket.on('currentPlayers', (serverPlayers) => {
         players = serverPlayers;
         for (let id in players) {
@@ -460,6 +487,10 @@
                 myPlayer = players[id];
                 adminNameSpan.innerText = myPlayer.isAdmin ? myPlayer.username : 'None';
                 updateSizeDisplay(myPlayer.radius);
+                currentLevel = myPlayer.level || 1;
+                currentTitle = myPlayer.title || '🍼 Newbie';
+                levelElement.innerText = currentLevel;
+                levelTitleElement.innerText = currentTitle;
                 if (myPlayer.isAdmin) {
                     addChatMessage('System', 'You are ADMIN! Type /help', false, true);
                 }
@@ -518,7 +549,7 @@
         for (let i = 0; i < leaderboard.length; i++) {
             const p = leaderboard[i];
             const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : '  ';
-            html += `<div>${medal} ${p.username} - ${p.score}</div>`;
+            html += `<div>${medal} ${p.username} - ${formatScore(p.score)} (Lvl ${p.level})</div>`;
         }
         leaderboardList.innerHTML = html;
     });
@@ -527,15 +558,29 @@
         if (players[data.id]) {
             players[data.id].score = data.score;
             players[data.id].radius = data.radius;
+            players[data.id].level = data.level;
+            players[data.id].title = data.title;
         }
         if (data.id === myId) {
             if (data.score > currentScore) {
                 currentScore = data.score;
-                scoreElement.innerText = currentScore;
+                scoreElement.innerText = formatScore(currentScore);
             }
             if (myPlayer) {
                 myPlayer.radius = data.radius;
                 updateSizeDisplay(data.radius);
+            }
+            if (data.level !== lastLevel) {
+                lastLevel = data.level;
+                levelElement.innerText = data.level;
+                levelTitleElement.innerText = data.title;
+                levelElement.classList.add('level-up');
+                levelTitleElement.classList.add('level-up');
+                setTimeout(() => {
+                    levelElement.classList.remove('level-up');
+                    levelTitleElement.classList.remove('level-up');
+                }, 500);
+                addChatMessage('System', `🎉 LEVEL UP! You reached ${data.title} (Level ${data.level})!`, false, true);
             }
         }
     });
@@ -581,11 +626,9 @@
         let targetY = myPlayer.y;
         
         if (useMouse && mouseX !== null && mouseY !== null) {
-            // Mouse follow mode
             targetX = mouseX;
             targetY = mouseY;
         } else {
-            // WASD/Arrow key mode
             const move = getMoveVector();
             if (move.x !== 0 || move.y !== 0) {
                 const speed = Math.min(6, 150 / myPlayer.radius);
@@ -594,7 +637,6 @@
             }
         }
         
-        // Move toward target
         const dx = targetX - myPlayer.x;
         const dy = targetY - myPlayer.y;
         const distance = Math.hypot(dx, dy);
@@ -625,12 +667,8 @@
                 socket.emit('collectOrb', orb.id);
                 orbs.splice(i, 1);
                 currentScore += orb.value;
-                scoreElement.innerText = currentScore;
+                scoreElement.innerText = formatScore(currentScore);
                 if (myPlayer) myPlayer.score = currentScore;
-                
-                const screenX = (orb.x - cameraX) * zoom;
-                const screenY = (orb.y - cameraY) * zoom;
-                // showScorePopup(screenX, screenY, orb.value);
                 break;
             }
         }
@@ -701,6 +739,7 @@
             ctx.stroke();
         }
         
+        // Draw orbs
         for (const orb of orbs) {
             const screenX = (orb.x - cameraX) * zoom;
             const screenY = (orb.y - cameraY) * zoom;
@@ -714,6 +753,7 @@
             }
         }
         
+        // Draw players
         for (const id in players) {
             if (id === myId) continue;
             const p = players[id];
@@ -731,28 +771,51 @@
                 ctx.fill();
                 ctx.fillStyle = 'white';
                 ctx.font = `${Math.max(10, 12 * zoom)}px Arial`;
-                const displayName = p.isBot ? `🤖 ${p.username}` : p.username;
-                ctx.fillText(displayName, screenX - 25 * zoom, screenY - 15 * zoom);
+                const levelBadge = p.level ? ` [Lvl ${p.level}]` : '';
+                const displayName = p.isBot ? `🤖 ${p.username}${levelBadge}` : `${p.username}${levelBadge}`;
+                ctx.fillText(displayName, screenX - 30 * zoom, screenY - 15 * zoom);
             }
         }
         
+        // Draw my player with level-based color
         const myScreenX = (myPlayer.x - cameraX) * zoom;
         const myScreenY = (myPlayer.y - cameraY) * zoom;
         const myRadius = myPlayer.radius * zoom;
         ctx.beginPath();
         ctx.arc(myScreenX, myScreenY, myRadius, 0, Math.PI * 2);
-        ctx.fillStyle = '#3b82f6';
+        
+        const myColor = getCellColor(currentLevel);
+        if (myColor === 'rainbow') {
+            const gradient = ctx.createLinearGradient(myScreenX - myRadius, myScreenY - myRadius, myScreenX + myRadius, myScreenY + myRadius);
+            gradient.addColorStop(0, '#ff0000');
+            gradient.addColorStop(0.2, '#ffff00');
+            gradient.addColorStop(0.4, '#00ff00');
+            gradient.addColorStop(0.6, '#00ffff');
+            gradient.addColorStop(0.8, '#0000ff');
+            gradient.addColorStop(1, '#ff00ff');
+            ctx.fillStyle = gradient;
+        } else {
+            ctx.fillStyle = myColor;
+        }
         ctx.fill();
         ctx.strokeStyle = '#ffffff';
         ctx.lineWidth = 3 * zoom;
         ctx.stroke();
         ctx.fillStyle = '#ffffff';
         ctx.font = `bold ${Math.max(12, myRadius * 0.5)}px Arial`;
-        ctx.fillText(myPlayer.username, myScreenX - 18 * zoom, myScreenY - 12 * zoom);
+        ctx.fillText(`${myPlayer.username} [Lvl ${currentLevel}]`, myScreenX - 35 * zoom, myScreenY - 12 * zoom);
         if (myPlayer.isAdmin) {
             ctx.fillStyle = '#fbbf24';
             ctx.font = `${Math.max(12, 16 * zoom)}px Arial`;
-            ctx.fillText('👑', myScreenX + 5 * zoom, myScreenY - 15 * zoom);
+            ctx.fillText('👑', myScreenX + 15 * zoom, myScreenY - 15 * zoom);
+        }
+        
+        // Level badge glow for high levels
+        if (currentLevel >= 10) {
+            ctx.shadowBlur = 15 * zoom;
+            ctx.shadowColor = '#fbbf24';
+            ctx.fill();
+            ctx.shadowBlur = 0;
         }
     }
 </script>
