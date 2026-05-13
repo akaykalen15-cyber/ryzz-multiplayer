@@ -22,15 +22,44 @@ const ADMIN_PASSWORD = 'ryzzking2024';
 let players = {};
 let bots = {};
 
-const MAP_WIDTH = 4000;
-const MAP_HEIGHT = 4000;
+// DYNAMIC MAP SIZE - Expands as players grow
+let MAP_WIDTH = 4000;
+let MAP_HEIGHT = 4000;
+const MAX_MAP_SIZE = 20000; // Max map size (20x larger than start)
+const MIN_MAP_SIZE = 4000;
+
+// Calculate map size based on highest player score
+function updateMapSize() {
+    let highestScore = 0;
+    for (const id in players) {
+        if (players[id].score > highestScore) {
+            highestScore = players[id].score;
+        }
+    }
+    for (const id in bots) {
+        if (bots[id].score > highestScore) {
+            highestScore = bots[id].score;
+        }
+    }
+    
+    // Map size grows with highest score: 4000 + (score / 10), max 20000
+    let newSize = Math.min(MAX_MAP_SIZE, MIN_MAP_SIZE + Math.floor(highestScore / 10));
+    if (newSize !== MAP_WIDTH) {
+        MAP_WIDTH = newSize;
+        MAP_HEIGHT = newSize;
+        console.log(`🗺️ Map expanded to ${MAP_WIDTH}x${MAP_HEIGHT} (highest score: ${highestScore})`);
+        
+        // Notify all players of new map size
+        io.emit('mapSizeUpdate', { width: MAP_WIDTH, height: MAP_HEIGHT });
+    }
+}
+
 let orbs = [];
 
 const botNames = ['Alpha', 'Beta', 'Gamma', 'Delta', 'Echo', 'Zeta', 'Theta', 'Sigma', 'Omega', 'Nova', 'Rex', 'Luna', 'Orion', 'Atlas'];
 const orbColors = ['#fbbf24', '#22c55e', '#3b82f6', '#a855f7'];
 const orbValues = [10, 25, 50, 100];
 
-// Generate orbs
 function generateOrbs(count) {
     for (let i = 0; i < count; i++) {
         const idx = Math.floor(Math.random() * orbColors.length);
@@ -60,22 +89,25 @@ function generateBot() {
     };
 }
 
-// START WITH 600 ORBS
+// Initialize orbs and bots
 generateOrbs(600);
 for (let i = 0; i < 12; i++) {
     generateBot();
 }
 
-// INSTANT ORB RESPAWN - Every 0.8 seconds, keep map full
+// Check map size every second
 setInterval(() => {
-    // Always keep at least 500 orbs on map
+    updateMapSize();
+}, 1000);
+
+// Instant orb respawn
+setInterval(() => {
     if (orbs.length < 500) {
         generateOrbs(80);
     } else {
-        // Even when full, add new ones continuously
         generateOrbs(25);
     }
-}, 800);  // Every 0.8 seconds
+}, 800);
 
 // Bot respawn
 setInterval(() => {
@@ -189,8 +221,8 @@ setInterval(() => {
                     bot.radius = Math.min(100, 18 + Math.floor(bot.score / 70));
                     player.score = Math.max(0, Math.floor(player.score / 2) - 20);
                     player.radius = Math.max(20, 20 + Math.floor(player.score / 60));
-                    player.x = Math.random() * (MAP_WIDTH - 200) + 100;
-                    player.y = Math.random() * (MAP_HEIGHT - 200) + 100;
+                    player.x = Math.random() * MAP_WIDTH;
+                    player.y = Math.random() * MAP_HEIGHT;
                     io.emit('playerMoved', player);
                     io.emit('chatMessage', { username: 'System', message: `🤖 ${bot.username} ate ${player.username}!`, isSystem: true });
                     updateLeaderboard();
@@ -237,6 +269,7 @@ io.on('connection', (socket) => {
         socket.emit('currentOrbs', orbs);
         socket.emit('currentPlayers', players);
         socket.emit('currentBots', bots);
+        socket.emit('mapSizeUpdate', { width: MAP_WIDTH, height: MAP_HEIGHT });
         socket.emit('adminConfirm', isAdmin);
         socket.broadcast.emit('newPlayer', players[socket.id]);
         updateLeaderboard();
@@ -290,8 +323,8 @@ io.on('connection', (socket) => {
             
             target.score = Math.max(0, Math.floor(target.score / 3));
             target.radius = Math.max(20, 20 + Math.floor(target.score / 60));
-            target.x = Math.random() * (MAP_WIDTH - 400) + 200;
-            target.y = Math.random() * (MAP_HEIGHT - 400) + 200;
+            target.x = Math.random() * MAP_WIDTH;
+            target.y = Math.random() * MAP_HEIGHT;
             
             updateLeaderboard();
             io.emit('scoreUpdate', { id: socket.id, score: eater.score, radius: eater.radius });
@@ -311,7 +344,7 @@ io.on('connection', (socket) => {
             
             switch(cmd) {
                 case '/help':
-                    socket.emit('chatMessage', { username: 'System', message: 'Commands: /kick [name], /clear, /list, /orbs, /bots', isSystem: true });
+                    socket.emit('chatMessage', { username: 'System', message: 'Commands: /kick [name], /clear, /list, /orbs, /bots, /map', isSystem: true });
                     break;
                 case '/kick':
                     if (parts.length < 2) return;
@@ -348,6 +381,9 @@ io.on('connection', (socket) => {
                     break;
                 case '/bots':
                     socket.emit('chatMessage', { username: 'System', message: `${Object.keys(bots).length} bots active`, isSystem: true });
+                    break;
+                case '/map':
+                    socket.emit('chatMessage', { username: 'System', message: `Map size: ${MAP_WIDTH}x${MAP_HEIGHT}`, isSystem: true });
                     break;
                 default:
                     socket.emit('chatMessage', { username: 'System', message: 'Type /help for commands', isSystem: true });
@@ -394,9 +430,10 @@ function updateLeaderboard() {
 
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, '0.0.0.0', () => {
-    console.log(`\n✅ RYZZ.io INSTANT ORB server running!`);
-    console.log(`🗺️ Map: ${MAP_WIDTH}x${MAP_HEIGHT}`);
+    console.log(`\n✅ RYZZ.io INFINITE MAP server running!`);
+    console.log(`🗺️ Dynamic map: ${MAP_WIDTH}x${MAP_HEIGHT} (grows with scores)`);
+    console.log(`🔍 Infinite zoom available!`);
     console.log(`🤖 Bots: ${Object.keys(bots).length}`);
-    console.log(`🟡 Orbs: ${orbs.length} (respawn every 0.8s)`);
+    console.log(`🟡 Orbs: ${orbs.length}`);
     console.log(`👑 Admin: ${ADMIN_NAME}\n`);
 });
