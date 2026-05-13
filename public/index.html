@@ -1,14 +1,9 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>RYZZ.io - Manual Zoom</title>
+    <title>RYZZ.io - Faster Gameplay</title>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-            user-select: none;
-        }
+        * { margin: 0; padding: 0; box-sizing: border-box; user-select: none; }
         body {
             background: #0a0f1e;
             display: flex;
@@ -24,83 +19,35 @@
             border-radius: 16px;
             text-align: center;
         }
-        #joinScreen h1 {
-            color: #fbbf24;
-            margin-bottom: 20px;
-        }
+        #joinScreen h1 { color: #fbbf24; margin-bottom: 20px; }
         #joinScreen input {
-            background: #1f2937;
-            border: 1px solid #374151;
-            color: #ffffff;
-            caret-color: #fbbf24;
-            padding: 12px 20px;
-            border-radius: 8px;
-            font-size: 16px;
-            width: 250px;
-            margin-bottom: 10px;
-            outline: none;
+            background: #1f2937; border: 1px solid #374151; color: #ffffff;
+            caret-color: #fbbf24; padding: 12px 20px; border-radius: 8px;
+            font-size: 16px; width: 250px; margin-bottom: 10px; outline: none;
         }
-        #joinScreen input:focus {
-            border-color: #fbbf24;
-        }
-        #joinScreen input::placeholder {
-            color: #6b7280;
-        }
+        #joinScreen input:focus { border-color: #fbbf24; }
+        #joinScreen input::placeholder { color: #6b7280; }
         #joinScreen button {
-            background: #3b82f6;
-            border: none;
-            color: white;
-            padding: 12px 30px;
-            border-radius: 8px;
-            font-size: 16px;
-            cursor: pointer;
+            background: #3b82f6; border: none; color: white;
+            padding: 12px 30px; border-radius: 8px; font-size: 16px; cursor: pointer;
         }
-        #joinScreen button:hover {
-            background: #2563eb;
-        }
-        #errorMsg {
-            color: #ef4444;
-            margin-top: 10px;
-        }
-        #gameContainer {
-            position: relative;
-            display: inline-block;
-        }
-        canvas {
-            border: 2px solid #1f2937;
-            display: block;
-            border-radius: 8px;
-            cursor: crosshair;
-        }
+        #joinScreen button:hover { background: #2563eb; }
+        #errorMsg { color: #ef4444; margin-top: 10px; }
+        #gameContainer { position: relative; display: inline-block; }
+        canvas { border: 2px solid #1f2937; display: block; border-radius: 8px; cursor: crosshair; }
         #ui {
-            position: absolute;
-            top: 10px;
-            left: 10px;
-            right: 10px;
-            display: flex;
-            justify-content: space-between;
-            gap: 10px;
-            flex-wrap: wrap;
-            z-index: 10;
-            pointer-events: none;
+            position: absolute; top: 10px; left: 10px; right: 10px;
+            display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap;
+            z-index: 10; pointer-events: none;
         }
         .stats, #leaderboard, #allTimeLeaderboard, #zoomControl {
-            pointer-events: auto;
-            background: rgba(0, 0, 0, 0.7);
-            backdrop-filter: blur(5px);
-            padding: 6px 12px;
-            border-radius: 8px;
-            color: white;
-            font-size: 12px;
+            pointer-events: auto; background: rgba(0,0,0,0.7); backdrop-filter: blur(5px);
+            padding: 6px 12px; border-radius: 8px; color: white; font-size: 12px;
             border: 1px solid #374151;
         }
-        .stats span {
-            color: #fbbf24;
-            font-weight: bold;
-        }
+        .stats span { color: #fbbf24; font-weight: bold; }
         .admin-glowing {
-            font-weight: bold;
-            color: #ffffff;
+            font-weight: bold; color: #ffffff;
             text-shadow: 0 0 5px #ffffff, 0 0 10px #ffffff, 0 0 15px #fbbf24;
             animation: adminPulse 1.5s ease-in-out infinite;
         }
@@ -109,185 +56,53 @@
             50% { text-shadow: 0 0 10px #ffffff, 0 0 20px #fbbf24, 0 0 30px #fbbf24; }
             100% { text-shadow: 0 0 5px #ffffff, 0 0 10px #ffffff; }
         }
-        #leaderboard, #allTimeLeaderboard {
-            min-width: 160px;
-        }
-        #leaderboard h4, #allTimeLeaderboard h4 {
-            margin-bottom: 4px;
-            color: #fbbf24;
-            font-size: 11px;
-        }
-        #leaderboardList, #allTimeList {
-            max-height: 100px;
-            overflow-y: auto;
-            font-size: 10px;
-        }
-        #leaderboardList div, #allTimeList div {
-            margin: 2px 0;
-        }
+        #leaderboard, #allTimeLeaderboard { min-width: 160px; }
+        #leaderboard h4, #allTimeLeaderboard h4 { margin-bottom: 4px; color: #fbbf24; font-size: 11px; }
+        #leaderboardList, #allTimeList { max-height: 100px; overflow-y: auto; font-size: 10px; }
+        #leaderboardList div, #allTimeList div { margin: 2px 0; }
         #zoomControl button {
-            background: #3b82f6;
-            border: none;
-            color: white;
-            padding: 2px 8px;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 12px;
+            background: #3b82f6; border: none; color: white;
+            padding: 2px 8px; border-radius: 4px; cursor: pointer; font-size: 12px;
             pointer-events: auto;
         }
-        #zoomLevel {
-            font-size: 11px;
-            min-width: 45px;
-            text-align: center;
-        }
-        #sizeBarContainer {
-            width: 80px;
-            height: 6px;
-            background: #374151;
-            border-radius: 3px;
-            overflow: hidden;
-            display: inline-block;
-            margin-left: 6px;
-        }
-        #sizeBar {
-            height: 100%;
-            width: 0%;
-            background: linear-gradient(90deg, #3b82f6, #fbbf24);
-            border-radius: 3px;
-            transition: width 0.1s ease;
-        }
+        #zoomLevel { font-size: 11px; min-width: 45px; text-align: center; }
+        #sizeBarContainer { width: 80px; height: 6px; background: #374151; border-radius: 3px; overflow: hidden; display: inline-block; margin-left: 6px; }
+        #sizeBar { height: 100%; width: 0%; background: linear-gradient(90deg, #3b82f6, #fbbf24); border-radius: 3px; transition: width 0.1s ease; }
         #chatOverlay {
-            position: absolute;
-            bottom: 10px;
-            left: 10px;
-            width: 280px;
-            background: rgba(0, 0, 0, 0.85);
-            border-radius: 8px;
-            backdrop-filter: blur(5px);
-            border: 1px solid #374151;
-            z-index: 10;
+            position: absolute; bottom: 10px; left: 10px; width: 280px;
+            background: rgba(0,0,0,0.85); border-radius: 8px; backdrop-filter: blur(5px);
+            border: 1px solid #374151; z-index: 10;
         }
-        #chatMessages {
-            height: 100px;
-            overflow-y: auto;
-            padding: 6px;
-            font-size: 11px;
-            color: #ccc;
-        }
-        #chatMessages div {
-            margin-bottom: 3px;
-            word-wrap: break-word;
-        }
-        #chatInputArea {
-            display: flex;
-            padding: 5px;
-            gap: 5px;
-            border-top: 1px solid #374151;
-        }
-        #chatInput {
-            flex: 1;
-            background: #1f2937;
-            border: 1px solid #374151;
-            color: white;
-            padding: 5px 8px;
-            border-radius: 6px;
-            outline: none;
-            font-size: 11px;
-        }
-        #chatInput:focus {
-            border-color: #fbbf24;
-        }
-        #chatSend {
-            background: #3b82f6;
-            border: none;
-            color: white;
-            padding: 5px 10px;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 11px;
-        }
-        .chat-admin { color: #fbbf24; font-weight: bold; }
-        .chat-system { color: #ef4444; font-style: italic; }
+        #chatMessages { height: 100px; overflow-y: auto; padding: 6px; font-size: 11px; color: #ccc; }
+        #chatMessages div { margin-bottom: 3px; word-wrap: break-word; }
+        #chatInputArea { display: flex; padding: 5px; gap: 5px; border-top: 1px solid #374151; }
+        #chatInput { flex:1; background:#1f2937; border:1px solid #374151; color:white; padding:5px 8px; border-radius:6px; outline:none; font-size:11px; }
+        #chatInput:focus { border-color: #fbbf24; }
+        #chatSend { background:#3b82f6; border:none; color:white; padding:5px 10px; border-radius:6px; cursor:pointer; font-size:11px; }
+        .chat-admin { color:#fbbf24; font-weight:bold; }
+        .chat-system { color:#ef4444; font-style:italic; }
         .hidden { display: none; }
         .controls-hint {
-            position: absolute;
-            bottom: 10px;
-            right: 10px;
-            background: rgba(0,0,0,0.5);
-            padding: 4px 8px;
-            border-radius: 6px;
-            font-size: 10px;
-            color: #888;
-            pointer-events: none;
+            position: absolute; bottom: 10px; right: 10px;
+            background: rgba(0,0,0,0.5); padding: 4px 8px; border-radius: 6px;
+            font-size: 10px; color: #888; pointer-events: none;
         }
-        .leaderboard-admin {
-            color: #ffffff;
-            font-weight: bold;
-            text-shadow: 0 0 3px #ffffff, 0 0 6px #fbbf24;
-        }
-        
+        .leaderboard-admin { color:#ffffff; font-weight:bold; text-shadow:0 0 3px #ffffff,0 0 6px #fbbf24; }
         #adminPanel {
-            position: absolute;
-            top: 80px;
-            right: 10px;
-            background: rgba(0, 0, 0, 0.85);
-            backdrop-filter: blur(8px);
-            border-radius: 12px;
-            padding: 10px;
-            border: 1px solid #fbbf24;
-            z-index: 20;
-            pointer-events: auto;
+            position: absolute; top: 80px; right: 10px;
+            background: rgba(0,0,0,0.85); backdrop-filter: blur(8px); border-radius: 12px;
+            padding: 10px; border: 1px solid #fbbf24; z-index: 20; pointer-events: auto;
             min-width: 150px;
         }
-        #adminPanel h4 {
-            color: #fbbf24;
-            font-size: 11px;
-            margin-bottom: 8px;
-            text-align: center;
-        }
-        .admin-btn {
-            background: #3b82f6;
-            border: none;
-            color: white;
-            padding: 5px 10px;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 11px;
-            margin: 3px;
-            width: 65px;
-        }
-        .admin-btn:hover {
-            background: #2563eb;
-        }
-        .admin-btn-danger {
-            background: #ef4444;
-        }
-        .admin-btn-danger:hover {
-            background: #dc2626;
-        }
-        .admin-btn-gold {
-            background: #fbbf24;
-            color: #111827;
-        }
-        .admin-btn-gold:hover {
-            background: #f59e0b;
-        }
-        .admin-btn-group {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 5px;
-            justify-content: center;
-        }
-        .player-select {
-            background: #1f2937;
-            border: 1px solid #374151;
-            color: white;
-            padding: 4px 6px;
-            border-radius: 6px;
-            font-size: 10px;
-            width: 100%;
-            margin-bottom: 8px;
-        }
+        #adminPanel h4 { color: #fbbf24; font-size: 11px; margin-bottom: 8px; text-align: center; }
+        .admin-btn { background:#3b82f6; border:none; color:white; padding:5px 10px; border-radius:6px; cursor:pointer; font-size:11px; margin:3px; width:65px; }
+        .admin-btn:hover { background:#2563eb; }
+        .admin-btn-danger { background:#ef4444; }
+        .admin-btn-danger:hover { background:#dc2626; }
+        .admin-btn-gold { background:#fbbf24; color:#111827; }
+        .admin-btn-gold:hover { background:#f59e0b; }
+        .admin-btn-group { display:flex; flex-wrap:wrap; gap:5px; justify-content:center; }
+        .player-select { background:#1f2937; border:1px solid #374151; color:white; padding:4px 6px; border-radius:6px; font-size:10px; width:100%; margin-bottom:8px; }
     </style>
 </head>
 <body>
@@ -359,14 +174,14 @@
         <div id="chatOverlay">
             <div id="chatMessages">
                 <div class="chat-system">🔔 Welcome! WASD or Arrow keys to move. Mouse to aim.</div>
-                <div class="chat-system">🔍 Use mouse wheel or +/- buttons to zoom freely!</div>
+                <div class="chat-system">🚀 Speed is now faster at all sizes!</div>
             </div>
             <div id="chatInputArea">
                 <input type="text" id="chatInput" placeholder="Type a message... /help for commands" maxlength="100" autocomplete="off">
                 <button id="chatSend">Send</button>
             </div>
         </div>
-        <div class="controls-hint">⬆️ WASD / Arrow Keys | 🖱️ Mouse | Scroll to zoom (2% to 300%) | 👑 Admin Panel</div>
+        <div class="controls-hint">⬆️ WASD / Arrow Keys | 🖱️ Mouse | Scroll to zoom (2%-300%)</div>
     </div>
 </div>
 
@@ -399,10 +214,9 @@
     let mouseX = null, mouseY = null;
     let useMouse = true;
     
-    // MANUAL ZOOM - Full control (2% to 300%)
     let zoom = 1.0;
-    const MIN_ZOOM = 0.02;   // 2% - zoom out very far
-    const MAX_ZOOM = 3.0;    // 300% - zoom in close
+    const MIN_ZOOM = 0.02;
+    const MAX_ZOOM = 3.0;
     
     let MAP_WIDTH = 4000;
     let MAP_HEIGHT = 4000;
@@ -478,7 +292,7 @@
     function updateSizeDisplay(radius) {
         currentSize = Math.floor(radius);
         sizeElement.innerText = currentSize;
-        let percent = Math.min(100, (radius / 500) * 100);
+        let percent = Math.min(100, (radius / 200) * 100);
         sizeBar.style.width = `${percent}%`;
     }
     
@@ -807,326 +621,3 @@
                 killsElement.innerText = kills;
             }
             if (myPlayer) {
-                myPlayer.radius = data.radius;
-                updateSizeDisplay(data.radius);
-            }
-            if (data.level !== lastLevel) {
-                lastLevel = data.level;
-                currentLevel = data.level;
-                currentTitle = data.title;
-                currentPerks = data.perks;
-                levelElement.innerText = data.level;
-                levelTitleElement.innerText = data.title;
-                perksElement.innerHTML = formatPerks(data.perks);
-                addChatMessage('System', `🎉 LEVEL UP! You reached ${data.title} (Level ${data.level})!`, false, true);
-            } else if (data.perks) {
-                currentPerks = data.perks;
-                perksElement.innerHTML = formatPerks(data.perks);
-            }
-        }
-    });
-    
-    socket.on('orbCollected', (orbId) => {
-        collectingOrbIds.delete(orbId);
-        const index = orbs.findIndex(o => o.id === orbId);
-        if (index !== -1) {
-            orbs.splice(index, 1);
-        }
-    });
-    
-    socket.on('orbCollectionFailed', (orbId) => {
-        collectingOrbIds.delete(orbId);
-    });
-    
-    socket.on('chatMessage', (data) => {
-        addChatMessage(data.username, data.message, data.isAdmin);
-    });
-    
-    socket.on('adminConfirm', (isAdmin) => {
-        if (isAdmin && myPlayer) {
-            myPlayer.isAdmin = true;
-            isAdmin = true;
-            adminNameSpan.innerText = myPlayer.username;
-            adminNameSpan.className = 'admin-glowing';
-            adminPanel.classList.remove('hidden');
-            setupAdminButtons();
-            updatePlayerSelect();
-            addChatMessage('System', '👑 You are ADMIN!', false, true);
-        }
-    });
-    
-    socket.on('nameRejected', (msg) => {
-        alert(msg);
-        window.location.reload();
-    });
-    
-    socket.on('kicked', (msg) => {
-        alert(msg);
-        window.location.reload();
-    });
-    
-    socket.on('banned', (msg) => {
-        alert(msg);
-        window.location.reload();
-    });
-    
-    socket.on('deathMessage', (data) => {
-        if (data.victimId === myId) {
-            addChatMessage('System', `💀 You were eaten by ${data.killerName}!`, false, true);
-        }
-    });
-    
-    function movePlayer() {
-        if (!myPlayer) return;
-        
-        let targetX = myPlayer.x;
-        let targetY = myPlayer.y;
-        
-        if (useMouse && mouseX !== null && mouseY !== null) {
-            targetX = mouseX;
-            targetY = mouseY;
-        } else {
-            const move = getMoveVector();
-            if (move.x !== 0 || move.y !== 0) {
-                const baseSpeed = Math.min(6, 150 / myPlayer.radius);
-                const speedMultiplier = currentPerks?.speedMultiplier || 1;
-                const speed = baseSpeed * speedMultiplier;
-                targetX = myPlayer.x + move.x * speed;
-                targetY = myPlayer.y + move.y * speed;
-            }
-        }
-        
-        const dx = targetX - myPlayer.x;
-        const dy = targetY - myPlayer.y;
-        const distance = Math.hypot(dx, dy);
-        if (distance > 1) {
-            const baseSpeed = Math.min(6, 150 / myPlayer.radius);
-            const speedMultiplier = currentPerks?.speedMultiplier || 1;
-            const speed = baseSpeed * speedMultiplier;
-            myPlayer.x += (dx / distance) * speed;
-            myPlayer.y += (dy / distance) * speed;
-        }
-        
-        myPlayer.x = Math.min(Math.max(myPlayer.x, myPlayer.radius + 5), MAP_WIDTH - myPlayer.radius - 5);
-        myPlayer.y = Math.min(Math.max(myPlayer.y, myPlayer.radius + 5), MAP_HEIGHT - myPlayer.radius - 5);
-        socket.emit('playerMovement', { x: myPlayer.x, y: myPlayer.y });
-    }
-    
-    function checkCollisions() {
-        if (!myPlayer) return;
-        
-        for (let i = 0; i < orbs.length; i++) {
-            const orb = orbs[i];
-            if (collectingOrbIds.has(orb.id)) continue;
-            
-            const dist = Math.hypot(myPlayer.x - orb.x, myPlayer.y - orb.y);
-            if (dist < myPlayer.radius + orb.radius) {
-                collectingOrbIds.add(orb.id);
-                socket.emit('collectOrb', orb.id);
-                orbs.splice(i, 1);
-                currentScore += orb.value;
-                scoreElement.innerText = formatScore(currentScore);
-                if (myPlayer) myPlayer.score = currentScore;
-                break;
-            }
-        }
-        
-        for (const id in players) {
-            if (id === myId) continue;
-            const other = players[id];
-            if (other.isBot) continue;
-            
-            const dist = Math.hypot(myPlayer.x - other.x, myPlayer.y - other.y);
-            if (dist < myPlayer.radius + other.radius) {
-                if (myPlayer.radius > other.radius && !other.isAdmin) {
-                    kills++;
-                    killsElement.innerText = kills;
-                    socket.emit('eatPlayer', id);
-                    addChatMessage('System', `🍽️ You ate ${other.username}! (${kills} kills)`, false, true);
-                } else if (other.radius > myPlayer.radius) {
-                    socket.emit('eatPlayer', myId);
-                    myPlayer.x = Math.random() * (MAP_WIDTH - 400) + 200;
-                    myPlayer.y = Math.random() * (MAP_HEIGHT - 400) + 200;
-                    socket.emit('playerMovement', { x: myPlayer.x, y: myPlayer.y });
-                } else {
-                    const angle = Math.atan2(myPlayer.y - other.y, myPlayer.x - other.x);
-                    myPlayer.x += Math.cos(angle) * 20;
-                    myPlayer.y += Math.sin(angle) * 20;
-                }
-            }
-        }
-    }
-    
-    function updateCamera() {
-        if (!myPlayer) return;
-        const effectiveWidth = canvas.width / zoom;
-        const effectiveHeight = canvas.height / zoom;
-        cameraX = myPlayer.x - effectiveWidth / 2;
-        cameraY = myPlayer.y - effectiveHeight / 2;
-        cameraX = Math.min(Math.max(cameraX, 0), MAP_WIDTH - effectiveWidth);
-        cameraY = Math.min(Math.max(cameraY, 0), MAP_HEIGHT - effectiveHeight);
-    }
-    
-    function draw() {
-        if (!myPlayer) return;
-        updateCamera();
-        
-        ctx.fillStyle = '#0a0f1e';
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-        
-        let gridSize = 200;
-        if (zoom < 0.3) gridSize = 500;
-        if (zoom < 0.15) gridSize = 1000;
-        if (zoom > 1.5) gridSize = 100;
-        
-        ctx.strokeStyle = '#1a2340';
-        ctx.lineWidth = 1;
-        const startX = Math.floor(cameraX / gridSize) * gridSize;
-        const startY = Math.floor(cameraY / gridSize) * gridSize;
-        for (let x = startX; x < cameraX + canvas.width / zoom; x += gridSize) {
-            const screenX = (x - cameraX) * zoom;
-            ctx.beginPath();
-            ctx.moveTo(screenX, 0);
-            ctx.lineTo(screenX, canvas.height);
-            ctx.stroke();
-        }
-        for (let y = startY; y < cameraY + canvas.height / zoom; y += gridSize) {
-            const screenY = (y - cameraY) * zoom;
-            ctx.beginPath();
-            ctx.moveTo(0, screenY);
-            ctx.lineTo(canvas.width, screenY);
-            ctx.stroke();
-        }
-        
-        for (const orb of orbs) {
-            const screenX = (orb.x - cameraX) * zoom;
-            const screenY = (orb.y - cameraY) * zoom;
-            const radius = orb.radius * zoom;
-            if (screenX + radius > 0 && screenX - radius < canvas.width &&
-                screenY + radius > 0 && screenY - radius < canvas.height) {
-                ctx.beginPath();
-                ctx.arc(screenX, screenY, radius, 0, Math.PI * 2);
-                ctx.fillStyle = orb.color;
-                ctx.fill();
-                if (orb.value >= 350) {
-                    ctx.shadowBlur = 6 * zoom;
-                    ctx.shadowColor = orb.color;
-                    ctx.fill();
-                    ctx.shadowBlur = 0;
-                }
-            }
-        }
-        
-        for (const id in players) {
-            if (id === myId) continue;
-            const p = players[id];
-            const screenX = (p.x - cameraX) * zoom;
-            const screenY = (p.y - cameraY) * zoom;
-            const radius = p.radius * zoom;
-            if (screenX + radius > 0 && screenX - radius < canvas.width &&
-                screenY + radius > 0 && screenY - radius < canvas.height) {
-                ctx.beginPath();
-                ctx.arc(screenX, screenY, radius, 0, Math.PI * 2);
-                if (p.isBot) ctx.fillStyle = '#a855f7';
-                else if (p.isAdmin) ctx.fillStyle = '#fbbf24';
-                else if (p.radius > myPlayer.radius) ctx.fillStyle = '#ff4444';
-                else ctx.fillStyle = '#ef4444';
-                ctx.fill();
-                ctx.fillStyle = 'white';
-                ctx.font = `${Math.max(10, 12 * zoom)}px Arial`;
-                const levelBadge = p.level ? ` [Lvl ${p.level}]` : '';
-                const displayName = p.isBot ? `🤖 ${p.username}${levelBadge}` : `${p.username}${levelBadge}`;
-                if (p.isAdmin) {
-                    ctx.shadowBlur = 8 * zoom;
-                    ctx.shadowColor = '#ffffff';
-                    ctx.fillStyle = '#ffffff';
-                    ctx.fillText(displayName, screenX - 30 * zoom, screenY - 15 * zoom);
-                    ctx.shadowBlur = 0;
-                } else {
-                    ctx.fillText(displayName, screenX - 30 * zoom, screenY - 15 * zoom);
-                }
-                if (p.isBot && p.radius > 100) {
-                    ctx.fillStyle = '#ff0000';
-                    ctx.font = `${12 * zoom}px Arial`;
-                    ctx.fillText('⚠️ GIANT ⚠️', screenX - 30 * zoom, screenY - 25 * zoom);
-                }
-            }
-        }
-        
-        const myScreenX = (myPlayer.x - cameraX) * zoom;
-        const myScreenY = (myPlayer.y - cameraY) * zoom;
-        const myRadius = myPlayer.radius * zoom;
-        ctx.beginPath();
-        ctx.arc(myScreenX, myScreenY, myRadius, 0, Math.PI * 2);
-        
-        const myColor = getCellColor(currentLevel);
-        if (myColor === 'rainbow' || myColor === 'rainbow_fast') {
-            const gradient = ctx.createLinearGradient(myScreenX - myRadius, myScreenY - myRadius, myScreenX + myRadius, myScreenY + myRadius);
-            gradient.addColorStop(0, '#ff0000');
-            gradient.addColorStop(0.2, '#ffff00');
-            gradient.addColorStop(0.4, '#00ff00');
-            gradient.addColorStop(0.6, '#00ffff');
-            gradient.addColorStop(0.8, '#0000ff');
-            gradient.addColorStop(1, '#ff00ff');
-            ctx.fillStyle = gradient;
-        } else {
-            ctx.fillStyle = myColor;
-        }
-        ctx.fill();
-        ctx.strokeStyle = '#ffffff';
-        ctx.lineWidth = 3 * zoom;
-        ctx.stroke();
-        
-        ctx.fillStyle = '#ffffff';
-        ctx.font = `bold ${Math.max(12, myRadius * 0.5)}px Arial`;
-        if (myPlayer.isAdmin) {
-            ctx.shadowBlur = 10 * zoom;
-            ctx.shadowColor = '#ffffff';
-            ctx.fillText(`${myPlayer.username} [Lvl ${currentLevel}]`, myScreenX - 35 * zoom, myScreenY - 12 * zoom);
-            ctx.shadowBlur = 0;
-            ctx.fillStyle = '#fbbf24';
-            ctx.font = `${Math.max(12, 16 * zoom)}px Arial`;
-            ctx.fillText('👑', myScreenX + 15 * zoom, myScreenY - 15 * zoom);
-        } else {
-            ctx.fillText(`${myPlayer.username} [Lvl ${currentLevel}]`, myScreenX - 35 * zoom, myScreenY - 12 * zoom);
-        }
-        
-        if (currentLevel >= 10) {
-            ctx.shadowBlur = 12 * zoom;
-            ctx.shadowColor = '#fbbf24';
-            ctx.fill();
-            ctx.shadowBlur = 0;
-        }
-        
-        if (currentLevel >= 15) {
-            ctx.beginPath();
-            ctx.arc(myScreenX, myScreenY, myRadius + 3 * zoom, 0, Math.PI * 2);
-            ctx.strokeStyle = '#a855f7';
-            ctx.lineWidth = 2 * zoom;
-            ctx.stroke();
-        }
-        if (currentLevel >= 20) {
-            ctx.beginPath();
-            ctx.arc(myScreenX, myScreenY, myRadius + 6 * zoom, 0, Math.PI * 2);
-            ctx.strokeStyle = '#fbbf24';
-            ctx.lineWidth = 2 * zoom;
-            ctx.stroke();
-        }
-        
-        // Warning when giant cell is nearby
-        for (const id in players) {
-            if (id === myId) continue;
-            const p = players[id];
-            if (p.radius > myPlayer.radius * 2) {
-                const dist = Math.hypot(myPlayer.x - p.x, myPlayer.y - p.y);
-                if (dist < 400) {
-                    ctx.fillStyle = '#ff0000';
-                    ctx.font = `${18 * zoom}px Arial`;
-                    ctx.fillText('⚠️ GIANT NEARBY! RUN! ⚠️', myScreenX - 70 * zoom, myScreenY - 50 * zoom);
-                }
-            }
-        }
-    }
-</script>
-</body>
-</html>
