@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>RYZZ.io - All-Time Top 10</title>
+    <title>RYZZ.io - Glowing Admin</title>
     <style>
         * {
             margin: 0;
@@ -86,6 +86,18 @@
         .stats span {
             color: #fbbf24;
             font-weight: bold;
+        }
+        /* Glowing admin name style */
+        .admin-glowing {
+            font-weight: bold;
+            color: #ffffff;
+            text-shadow: 0 0 5px #ffffff, 0 0 10px #ffffff, 0 0 15px #fbbf24;
+            animation: adminPulse 1.5s ease-in-out infinite;
+        }
+        @keyframes adminPulse {
+            0% { text-shadow: 0 0 5px #ffffff, 0 0 10px #ffffff; }
+            50% { text-shadow: 0 0 10px #ffffff, 0 0 20px #fbbf24, 0 0 30px #fbbf24; }
+            100% { text-shadow: 0 0 5px #ffffff, 0 0 10px #ffffff; }
         }
         #leaderboard, #allTimeLeaderboard {
             min-width: 160px;
@@ -198,6 +210,12 @@
             color: #888;
             pointer-events: none;
         }
+        /* Glowing name in leaderboard */
+        .leaderboard-admin {
+            color: #ffffff;
+            font-weight: bold;
+            text-shadow: 0 0 3px #ffffff, 0 0 6px #fbbf24;
+        }
     </style>
 </head>
 <body>
@@ -223,7 +241,7 @@
             </div>
             <div class="stats">🎯 Lvl: <span id="levelValue">1</span> <span id="levelTitle"></span></div>
             <div class="stats">⚡ <span id="perksValue">0%</span></div>
-            <div class="stats">👑 Admin: <span id="adminName"></span></div>
+            <div class="stats">👑 Admin: <span id="adminName" class="admin-glowing">RYZZ</span></div>
             <div id="zoomControl">
                 <span>🔍</span>
                 <button id="zoomOutBtn">-</button>
@@ -244,14 +262,14 @@
         <div id="chatOverlay">
             <div id="chatMessages">
                 <div class="chat-system">🔔 Welcome! WASD or Arrow keys to move. Mouse to aim.</div>
-                <div class="chat-system">🏆 Type /top10 to see all-time legends!</div>
+                <div class="chat-system">👑 Admin RYZZ glows in white! Type /top10 to see legends.</div>
             </div>
             <div id="chatInputArea">
                 <input type="text" id="chatInput" placeholder="Type a message... /help for commands" maxlength="100" autocomplete="off">
                 <button id="chatSend">Send</button>
             </div>
         </div>
-        <div class="controls-hint">⬆️ WASD / Arrow Keys | 🖱️ Mouse | Scroll to zoom | 🏆 All-time records</div>
+        <div class="controls-hint">⬆️ WASD / Arrow Keys | 🖱️ Mouse | Scroll to zoom | 👑 Glowing admin</div>
     </div>
 </div>
 
@@ -292,7 +310,6 @@
     
     let collectingOrbIds = new Set();
     let lastLevel = 1;
-    let lastDeathMessage = '';
     
     const joinScreen = document.getElementById('joinScreen');
     const gameScreen = document.getElementById('gameScreen');
@@ -482,13 +499,16 @@
         gameLoop();
     };
     
-    // 🏆 All-Time Leaderboard event
     socket.on('allTimeLeaderboard', (leaderboard) => {
         let html = '';
         for (let i = 0; i < leaderboard.length; i++) {
             const p = leaderboard[i];
             const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : '  ';
-            html += `<div>${medal} ${p.username} - ${formatScore(p.score)}</div>`;
+            if (p.username === 'RYZZ') {
+                html += `<div><span class="leaderboard-admin">${medal} ${p.username} - ${formatScore(p.score)}</span></div>`;
+            } else {
+                html += `<div>${medal} ${p.username} - ${formatScore(p.score)}</div>`;
+            }
         }
         if (leaderboard.length === 0) {
             html = '<div style="color:#666;">Be the first!</div>';
@@ -503,6 +523,11 @@
                 myId = id;
                 myPlayer = players[id];
                 adminNameSpan.innerText = myPlayer.isAdmin ? myPlayer.username : 'None';
+                if (myPlayer.isAdmin) {
+                    adminNameSpan.classList.add('admin-glowing');
+                } else {
+                    adminNameSpan.classList.remove('admin-glowing');
+                }
                 updateSizeDisplay(myPlayer.radius);
                 currentLevel = myPlayer.level || 1;
                 currentTitle = myPlayer.title || '🍼 Newbie';
@@ -511,7 +536,7 @@
                 levelTitleElement.innerText = currentTitle;
                 perksElement.innerHTML = formatPerks(currentPerks);
                 if (myPlayer.isAdmin) {
-                    addChatMessage('System', 'You are ADMIN! Type /help', false, true);
+                    addChatMessage('System', '👑 You are ADMIN! Type /help', false, true);
                 }
                 kills = myPlayer.kills || 0;
                 killsElement.innerText = kills;
@@ -570,7 +595,11 @@
         for (let i = 0; i < leaderboard.length; i++) {
             const p = leaderboard[i];
             const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : '  ';
-            html += `<div>${medal} ${p.username} - ${formatScore(p.score)} (Lvl ${p.level})</div>`;
+            if (p.username === 'RYZZ') {
+                html += `<div><span class="leaderboard-admin">${medal} ${p.username} - ${formatScore(p.score)} (Lvl ${p.level})</span></div>`;
+            } else {
+                html += `<div>${medal} ${p.username} - ${formatScore(p.score)} (Lvl ${p.level})</div>`;
+            }
         }
         leaderboardList.innerHTML = html;
     });
@@ -639,7 +668,8 @@
         if (isAdmin && myPlayer) {
             myPlayer.isAdmin = true;
             adminNameSpan.innerText = myPlayer.username;
-            addChatMessage('System', 'You are ADMIN!', false, true);
+            adminNameSpan.classList.add('admin-glowing');
+            addChatMessage('System', '👑 You are ADMIN!', false, true);
         }
     });
     
@@ -813,7 +843,16 @@
                 ctx.font = `${Math.max(10, 12 * zoom)}px Arial`;
                 const levelBadge = p.level ? ` [Lvl ${p.level}]` : '';
                 const displayName = p.isBot ? `🤖 ${p.username}${levelBadge}` : `${p.username}${levelBadge}`;
-                ctx.fillText(displayName, screenX - 30 * zoom, screenY - 15 * zoom);
+                // Glowing name for admin player on canvas
+                if (p.isAdmin) {
+                    ctx.shadowBlur = 8 * zoom;
+                    ctx.shadowColor = '#ffffff';
+                    ctx.fillStyle = '#ffffff';
+                    ctx.fillText(displayName, screenX - 30 * zoom, screenY - 15 * zoom);
+                    ctx.shadowBlur = 0;
+                } else {
+                    ctx.fillText(displayName, screenX - 30 * zoom, screenY - 15 * zoom);
+                }
             }
         }
         
@@ -827,50 +866,4 @@
         if (myColor === 'rainbow') {
             const gradient = ctx.createLinearGradient(myScreenX - myRadius, myScreenY - myRadius, myScreenX + myRadius, myScreenY + myRadius);
             gradient.addColorStop(0, '#ff0000');
-            gradient.addColorStop(0.2, '#ffff00');
-            gradient.addColorStop(0.4, '#00ff00');
-            gradient.addColorStop(0.6, '#00ffff');
-            gradient.addColorStop(0.8, '#0000ff');
-            gradient.addColorStop(1, '#ff00ff');
-            ctx.fillStyle = gradient;
-        } else {
-            ctx.fillStyle = myColor;
-        }
-        ctx.fill();
-        ctx.strokeStyle = '#ffffff';
-        ctx.lineWidth = 3 * zoom;
-        ctx.stroke();
-        ctx.fillStyle = '#ffffff';
-        ctx.font = `bold ${Math.max(12, myRadius * 0.5)}px Arial`;
-        ctx.fillText(`${myPlayer.username} [Lvl ${currentLevel}]`, myScreenX - 35 * zoom, myScreenY - 12 * zoom);
-        if (myPlayer.isAdmin) {
-            ctx.fillStyle = '#fbbf24';
-            ctx.font = `${Math.max(12, 16 * zoom)}px Arial`;
-            ctx.fillText('👑', myScreenX + 15 * zoom, myScreenY - 15 * zoom);
-        }
-        
-        if (currentLevel >= 10) {
-            ctx.shadowBlur = 12 * zoom;
-            ctx.shadowColor = '#fbbf24';
-            ctx.fill();
-            ctx.shadowBlur = 0;
-        }
-        
-        if (currentLevel >= 15) {
-            ctx.beginPath();
-            ctx.arc(myScreenX, myScreenY, myRadius + 3 * zoom, 0, Math.PI * 2);
-            ctx.strokeStyle = '#a855f7';
-            ctx.lineWidth = 2 * zoom;
-            ctx.stroke();
-        }
-        if (currentLevel >= 20) {
-            ctx.beginPath();
-            ctx.arc(myScreenX, myScreenY, myRadius + 6 * zoom, 0, Math.PI * 2);
-            ctx.strokeStyle = '#fbbf24';
-            ctx.lineWidth = 2 * zoom;
-            ctx.stroke();
-        }
-    }
-</script>
-</body>
-</html>
+            gradient.addColorStop(0.
