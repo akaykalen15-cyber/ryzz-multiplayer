@@ -20,48 +20,65 @@
             font-family: Arial, sans-serif;
             overflow: hidden;
         }
-        #joinScreen, #gameScreen {
+        /* WIDE JOIN SCREEN */
+        #joinScreen {
             background: #111827;
-            padding: 20px;
-            border-radius: 16px;
+            padding: 25px;
+            border-radius: 20px;
             text-align: center;
-            max-width: 500px;
             width: 90%;
+            max-width: 700px;
             max-height: 90vh;
             overflow-y: auto;
         }
+        #gameScreen {
+            background: #111827;
+            padding: 0;
+            border-radius: 16px;
+        }
         #joinScreen h1 {
             color: #fbbf24;
-            margin-bottom: 15px;
-            font-size: 28px;
+            margin-bottom: 20px;
+            font-size: 36px;
         }
-        #joinScreen input {
+        /* Two-column layout for username and password */
+        .input-group {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+        }
+        .input-group input {
+            flex: 1;
             background: #1f2937;
             border: 1px solid #374151;
             color: #ffffff;
             caret-color: #fbbf24;
-            padding: 10px 15px;
+            padding: 12px 15px;
             border-radius: 8px;
-            font-size: 14px;
-            width: 100%;
-            margin-bottom: 10px;
+            font-size: 16px;
             outline: none;
+            min-width: 200px;
         }
-        #joinScreen input:focus {
+        .input-group input:focus {
             border-color: #fbbf24;
         }
-        #joinScreen button {
+        #joinScreen input::placeholder {
+            color: #6b7280;
+        }
+        #joinBtn {
             background: #3b82f6;
             border: none;
             color: white;
-            padding: 10px 20px;
+            padding: 14px 20px;
             border-radius: 8px;
-            font-size: 16px;
+            font-size: 18px;
             cursor: pointer;
             width: 100%;
+            font-weight: bold;
             margin-top: 10px;
         }
-        #joinScreen button:hover {
+        #joinBtn:hover {
             background: #2563eb;
         }
         #errorMsg {
@@ -72,41 +89,48 @@
         /* Coin Display */
         .coin-display {
             background: linear-gradient(135deg, #fbbf24, #f59e0b);
-            border-radius: 20px;
-            padding: 8px 15px;
+            border-radius: 30px;
+            padding: 10px 20px;
             display: inline-flex;
             align-items: center;
-            gap: 8px;
-            margin: 10px 0;
+            gap: 10px;
+            margin: 15px 0;
             font-weight: bold;
             color: #1f2937;
-        }
-        .coin-display span {
             font-size: 20px;
         }
-        /* Skin Shop */
+        .coin-display span:first-child {
+            font-size: 24px;
+        }
+        /* Skin Shop - Grid Layout */
         .shop-title {
             color: #fbbf24;
-            font-size: 18px;
-            margin: 15px 0 10px;
+            font-size: 20px;
+            margin: 20px 0 15px;
             text-align: center;
+            border-top: 1px solid #374151;
+            padding-top: 15px;
         }
         .skin-grid {
             display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 10px;
+            grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+            gap: 12px;
             margin-top: 10px;
-            max-height: 300px;
+            max-height: 400px;
             overflow-y: auto;
             padding: 5px;
         }
         .skin-card {
             background: #1f2937;
-            border-radius: 10px;
-            padding: 8px;
+            border-radius: 12px;
+            padding: 12px;
             text-align: center;
             border: 2px solid #374151;
+            cursor: pointer;
             transition: all 0.2s;
+        }
+        .skin-card:hover {
+            transform: translateY(-2px);
         }
         .skin-card.owned {
             border-color: #fbbf24;
@@ -115,34 +139,34 @@
         .skin-card.equipped {
             border-color: #3b82f6;
             background: #1e3a5f;
-            box-shadow: 0 0 10px rgba(59,130,246,0.5);
+            box-shadow: 0 0 15px rgba(59,130,246,0.5);
         }
         .skin-preview {
-            width: 50px;
-            height: 50px;
+            width: 70px;
+            height: 70px;
             border-radius: 50%;
-            margin: 0 auto 5px;
+            margin: 0 auto 8px;
         }
         .skin-name {
-            font-size: 11px;
+            font-size: 13px;
             color: white;
             font-weight: bold;
         }
         .skin-price {
-            font-size: 10px;
+            font-size: 11px;
             color: #fbbf24;
-            margin: 3px 0;
+            margin: 5px 0;
         }
         .skin-btn {
             background: #3b82f6;
             border: none;
             color: white;
-            padding: 4px 8px;
-            border-radius: 5px;
+            padding: 5px 12px;
+            border-radius: 6px;
             cursor: pointer;
-            font-size: 10px;
-            margin: 2px;
-            width: 45px;
+            font-size: 11px;
+            margin: 3px;
+            width: 60px;
         }
         .skin-btn:hover {
             background: #2563eb;
@@ -157,17 +181,20 @@
             background: #fbbf24;
             color: #1f2937;
         }
+        .skin-btn.equip-btn:hover {
+            background: #f59e0b;
+        }
         /* Scrollbar */
         ::-webkit-scrollbar {
-            width: 6px;
+            width: 8px;
         }
         ::-webkit-scrollbar-track {
             background: #1f2937;
-            border-radius: 3px;
+            border-radius: 4px;
         }
         ::-webkit-scrollbar-thumb {
             background: #fbbf24;
-            border-radius: 3px;
+            border-radius: 4px;
         }
         /* Game Screen */
         #gameContainer {
@@ -187,7 +214,7 @@
             right: 10px;
             display: flex;
             justify-content: space-between;
-            gap: 10px;
+            gap: 8px;
             flex-wrap: wrap;
             z-index: 10;
             pointer-events: none;
@@ -196,10 +223,10 @@
             pointer-events: auto;
             background: rgba(0,0,0,0.7);
             backdrop-filter: blur(5px);
-            padding: 6px 12px;
+            padding: 5px 10px;
             border-radius: 8px;
             color: white;
-            font-size: 11px;
+            font-size: 10px;
             border: 1px solid #374151;
         }
         .stats span {
@@ -217,8 +244,8 @@
             50% { text-shadow: 0 0 10px #ffffff, 0 0 20px #fbbf24, 0 0 30px #fbbf24; }
             100% { text-shadow: 0 0 5px #ffffff, 0 0 10px #ffffff; }
         }
-        #leaderboard, #allTimeLeaderboard { min-width: 140px; }
-        #leaderboard h4, #allTimeLeaderboard h4 { margin-bottom: 4px; color: #fbbf24; font-size: 10px; }
+        #leaderboard, #allTimeLeaderboard { min-width: 130px; }
+        #leaderboard h4, #allTimeLeaderboard h4 { margin-bottom: 3px; color: #fbbf24; font-size: 10px; }
         #leaderboardList, #allTimeList { max-height: 80px; overflow-y: auto; font-size: 9px; }
         #zoomControl button {
             background: #3b82f6;
@@ -229,7 +256,7 @@
             cursor: pointer;
             font-size: 10px;
         }
-        #sizeBarContainer { width: 60px; height: 5px; background: #374151; border-radius: 3px; display: inline-block; margin-left: 5px; }
+        #sizeBarContainer { width: 50px; height: 4px; background: #374151; border-radius: 3px; display: inline-block; margin-left: 4px; }
         #sizeBar { height: 100%; width: 0%; background: linear-gradient(90deg,#3b82f6,#fbbf24); border-radius: 3px; }
         #chatOverlay {
             position: absolute;
@@ -283,8 +310,11 @@
 <body>
 <div id="joinScreen">
     <h1>👑 RYZZ.io</h1>
-    <input type="text" id="usernameInput" placeholder="Enter username" maxlength="20" autocomplete="off">
-    <input type="password" id="passwordInput" placeholder="Admin password" style="margin-top: 10px;" autocomplete="off">
+    
+    <div class="input-group">
+        <input type="text" id="usernameInput" placeholder="Enter username" maxlength="20" autocomplete="off">
+        <input type="password" id="passwordInput" placeholder="Admin password" autocomplete="off">
+    </div>
     
     <!-- Coin Display -->
     <div class="coin-display">
@@ -297,7 +327,7 @@
     <div class="shop-title">🎨 SKIN SHOP</div>
     <div class="skin-grid" id="skinGrid"></div>
     
-    <button id="joinBtn">Join Game</button>
+    <button id="joinBtn">🚀 JOIN GAME</button>
     <div id="errorMsg"></div>
 </div>
 
@@ -380,7 +410,6 @@
         { id: 'void', name: '∞ Void', color: '#1a1a2e', price: 25000, preview: '#1a1a2e' }
     ];
     
-    // Load saved data
     let playerCoins = parseInt(localStorage.getItem('ryzzCoins')) || 0;
     let ownedSkins = JSON.parse(localStorage.getItem('ryzzOwnedSkins')) || ['classic'];
     let equippedSkin = localStorage.getItem('ryzzEquippedSkin') || 'classic';
@@ -395,7 +424,6 @@
     function addCoins(amount) {
         playerCoins += amount;
         saveCoinData();
-        document.getElementById('coinAmount').innerText = playerCoins;
         return playerCoins;
     }
     
@@ -423,12 +451,8 @@
     function getSkinColor(level, skinId) {
         const skin = SKINS.find(s => s.id === skinId);
         if (!skin) return '#3b82f6';
-        if (skin.color === 'rainbow') {
-            return 'rainbow';
-        }
-        if (skin.color === 'cosmic') {
-            return 'cosmic';
-        }
+        if (skin.color === 'rainbow') return 'rainbow';
+        if (skin.color === 'cosmic') return 'cosmic';
         return skin.color;
     }
     
@@ -444,7 +468,6 @@
             const card = document.createElement('div');
             card.className = `skin-card ${owned ? 'owned' : ''} ${equipped ? 'equipped' : ''}`;
             
-            // Preview
             const preview = document.createElement('div');
             preview.className = 'skin-preview';
             if (skin.preview === 'rainbow') {
@@ -470,7 +493,8 @@
                 const buyBtn = document.createElement('button');
                 buyBtn.innerText = 'BUY';
                 buyBtn.className = 'skin-btn';
-                buyBtn.onclick = () => {
+                buyBtn.onclick = (e) => {
+                    e.stopPropagation();
                     if (buySkin(skin.id)) {
                         alert(`Purchased ${skin.name}!`);
                     } else {
@@ -483,7 +507,8 @@
                     const equipBtn = document.createElement('button');
                     equipBtn.innerText = 'EQUIP';
                     equipBtn.className = 'skin-btn owned-btn';
-                    equipBtn.onclick = () => {
+                    equipBtn.onclick = (e) => {
+                        e.stopPropagation();
                         equipSkin(skin.id);
                         alert(`${skin.name} equipped!`);
                     };
@@ -532,7 +557,7 @@
     let mouseX = null, mouseY = null;
     let useMouse = true;
     let zoom = 1.0;
-    const MIN_ZOOM = 0.02;
+    const MIN_ZOOM = 0.05;
     const MAX_ZOOM = 3.0;
     
     let MAP_WIDTH = 4000;
@@ -842,7 +867,6 @@
                     localStorage.setItem('ryzzPersonalBest', personalBest);
                     bestElement.innerText = formatScore(personalBest);
                     addChatMessage('System', `🏆 NEW PERSONAL BEST! ${formatScore(personalBest)}`, false, true);
-                    // Award coins for high score (1 coin per 1000 score)
                     const coinsEarned = Math.floor(currentScore / 1000);
                     if (coinsEarned > 0) {
                         addCoins(coinsEarned);
@@ -1069,14 +1093,13 @@
             }
         }
         
-        // Draw my player with equipped skin
+        // Draw my player
         const myScreenX = (myPlayer.x - cameraX) * zoom;
         const myScreenY = (myPlayer.y - cameraY) * zoom;
         const myRadius = myPlayer.radius * zoom;
         ctx.beginPath();
         ctx.arc(myScreenX, myScreenY, myRadius, 0, Math.PI * 2);
         
-        // Shield effect
         if (activePowerup === 'shield' && powerupEndTime > Date.now()) {
             ctx.fillStyle = '#ffd700';
             ctx.fill();
@@ -1145,7 +1168,6 @@
             ctx.stroke();
         }
         
-        // Danger warning
         for (const id in players) {
             if (id === myId) continue;
             const p = players[id];
