@@ -20,17 +20,33 @@ app.use(express.static(path.join(__dirname, 'public')));
 const ADMIN_NAME = 'RYZZ';
 const ADMIN_PASSWORD = 'ryzzking2024';
 
+// 🎮 GAME MODES
+const GAME_MODES = {
+    CLASSIC: 'classic',
+    SPEED: 'speed',
+    HARDCORE: 'hardcore',
+    SHIELD: 'shield',
+    ARENA: 'arena',
+    BOSS_RUSH: 'boss_rush'
+};
+
+let currentGameMode = GAME_MODES.CLASSIC;
+let arenaShrinkCount = 0;
+let lastModeChange = Date.now();
+const MODE_CHANGE_INTERVAL = 300000; // Change mode every 5 minutes
+
 let players = {};
 let bots = {};
 let bossBot = null;
 let bossHealth = 0;
 let bossSpawnTime = 0;
-const BOSS_SPAWN_INTERVAL = 600000; // 10 minutes
+const BOSS_SPAWN_INTERVAL = 600000;
 
 let MAP_WIDTH = 4000;
 let MAP_HEIGHT = 4000;
 const MAX_MAP_SIZE = 20000;
 const MIN_MAP_SIZE = 4000;
+let ARENA_MIN_SIZE = 4000;
 
 let orbs = [];
 let powerups = [];
@@ -50,7 +66,6 @@ const powerupTypes = [
 const botNames = ['Alpha', 'Beta', 'Gamma', 'Delta', 'Echo', 'Zeta', 'Theta', 'Sigma', 'Nova', 'Rex'];
 const bossNames = ['👑 TITAN', '👑 COLOSSUS', '👑 BEHEMOTH', '👑 LEVIATHAN', '👑 KRAKEN', '👑 GODZILLA'];
 
-// Load all-time leaderboard
 let allTimeTop10 = [];
 const LEADERBOARD_FILE = path.join(__dirname, 'top10.json');
 
@@ -158,6 +173,18 @@ function getPerks(level) {
     let scoreBonus = Math.min(Math.floor(level * 1), 500);
     let eatRangeBonus = Math.min(Math.floor(level * 0.8), 300);
     
+    // Apply game mode modifiers
+    if (currentGameMode === GAME_MODES.SPEED) {
+        speedBonus += 50;
+    }
+    if (currentGameMode === GAME_MODES.HARDCORE) {
+        speedBonus += 20;
+        sizeBonus = Math.max(0, sizeBonus - 30);
+    }
+    if (currentGameMode === GAME_MODES.SHIELD) {
+        speedBonus -= 20;
+    }
+    
     return {
         speedMultiplier: 1 + (speedBonus / 100),
         sizeMultiplier: 1 + (sizeBonus / 100),
@@ -180,6 +207,12 @@ function updateMapSize() {
     if (bossBot && bossBot.score > highestScore) highestScore = bossBot.score;
     
     let newSize = Math.min(MAX_MAP_SIZE, MIN_MAP_SIZE + Math.floor(highestScore / 100));
+    
+    // ARENA MODE: Shrinking map
+    if (currentGameMode === GAME_MODES.ARENA && arenaShrinkCount > 0) {
+        newSize = Math.max(ARENA_MIN_SIZE, newSize * 0.95);
+    }
+    
     if (newSize !== MAP_WIDTH) {
         MAP_WIDTH = newSize;
         MAP_HEIGHT = newSize;
@@ -215,7 +248,13 @@ function generatePowerup() {
 function generateBot() {
     const name = botNames[Math.floor(Math.random() * botNames.length)] + Math.floor(Math.random() * 99);
     const botId = 'bot_' + Math.random().toString(36).substr(2, 8);
-    const startScore = 200;
+    let startScore = 200;
+    
+    // Hardcore mode: bots start stronger
+    if (currentGameMode === GAME_MODES.HARDCORE) {
+        startScore = 500;
+    }
+    
     const level = getLevel(startScore);
     bots[botId] = {
         id: botId, 
@@ -236,8 +275,15 @@ function spawnBossBot() {
     if (bossBot) return;
     
     const bossName = bossNames[Math.floor(Math.random() * bossNames.length)];
-    const bossLevel = 40;
-    const bossScore = 100000;
+    let bossLevel = 40;
+    let bossScore = 100000;
+    
+    // Boss Rush mode: stronger bosses
+    if (currentGameMode === GAME_MODES.BOSS_RUSH) {
+        bossLevel = 60;
+        bossScore = 200000;
+    }
+    
     bossHealth = 100;
     
     bossBot = {
@@ -280,7 +326,12 @@ function moveBossBot() {
     }
     
     let moveX = 0, moveY = 0;
-    const bossSpeed = 2.5;
+    let bossSpeed = 2.5;
+    
+    // Speed mode: boss faster
+    if (currentGameMode === GAME_MODES.SPEED) {
+        bossSpeed = 3.5;
+    }
     
     if (nearestPlayer && playerDist < 400) {
         const dx = nearestPlayer.x - bossBot.x;
@@ -302,7 +353,6 @@ function moveBossBot() {
     bossBot.x = Math.min(Math.max(bossBot.x, bossBot.radius + 5), MAP_WIDTH - bossBot.radius - 5);
     bossBot.y = Math.min(Math.max(bossBot.y, bossBot.radius + 5), MAP_HEIGHT - bossBot.radius - 5);
     
-    // Boss collects orbs (grows)
     for (let i = 0; i < orbs.length; i++) {
         const orb = orbs[i];
         if (Math.hypot(bossBot.x - orb.x, bossBot.y - orb.y) < bossBot.radius + orb.radius) {
@@ -334,7 +384,13 @@ function damageBoss(playerId, damage) {
     io.emit('chatMessage', { username: 'System', message: `💥 ${player.username} dealt ${damage} damage to ${bossBot.username}! (${bossHealth}/100 HP)`, isSystem: true });
     
     if (bossHealth <= 0) {
-        const gain = 10000000;
+        let gain = 10000000;
+        
+        // Boss Rush mode: double reward
+        if (currentGameMode === GAME_MODES.BOSS_RUSH) {
+            gain = 20000000;
+        }
+        
         player.score += gain;
         player.radius = Math.min(200, 20 + Math.floor(player.score / 50));
         player.kills = (player.kills || 0) + 1;
@@ -346,10 +402,15 @@ function damageBoss(playerId, damage) {
         
         updateAllTimeLeaderboard(player.username, player.score);
         
-        io.emit('chatMessage', { username: 'System', message: `🎉🎉🎉 ${player.username} DEFEATED THE BOSS ${bossBot.username}! +10,000,000 points! 🎉🎉🎉`, isSystem: true });
+        io.emit('chatMessage', { username: 'System', message: `🎉🎉🎉 ${player.username} DEFEATED THE BOSS ${bossBot.username}! +${formatScore(gain)} points! 🎉🎉🎉`, isSystem: true });
         io.emit('chatMessage', { username: 'System', message: `👑 ${player.username} earned the title "BOSS SLAYER"!`, isSystem: true });
         
         generateOrbs(100);
+        
+        // Boss Rush mode: spawn next boss sooner
+        if (currentGameMode === GAME_MODES.BOSS_RUSH) {
+            setTimeout(() => spawnBossBot(), 30000);
+        }
         
         bossBot = null;
         updateLeaderboard();
@@ -367,7 +428,14 @@ function checkBossCollisions() {
         
         if (dist < bossBot.radius + player.radius) {
             if (bossBot.radius > player.radius && !player.isAdmin) {
-                player.score = Math.floor(player.score / 3);
+                let lossPercent = 0.8;
+                if (currentGameMode === GAME_MODES.HARDCORE) {
+                    lossPercent = 0.95;
+                } else if (currentGameMode === GAME_MODES.SHIELD) {
+                    lossPercent = 0.6;
+                }
+                
+                player.score = Math.floor(player.score * (1 - lossPercent));
                 player.radius = Math.min(200, 20 + Math.floor(player.score / 50));
                 player.x = Math.random() * MAP_WIDTH;
                 player.y = Math.random() * MAP_HEIGHT;
@@ -396,6 +464,75 @@ function checkBossCollisions() {
     }
 }
 
+// 🎮 CHANGE GAME MODE
+function changeGameMode() {
+    const modes = Object.values(GAME_MODES);
+    let newMode = modes[Math.floor(Math.random() * modes.length)];
+    
+    // Don't repeat the same mode
+    while (newMode === currentGameMode && modes.length > 1) {
+        newMode = modes[Math.floor(Math.random() * modes.length)];
+    }
+    
+    currentGameMode = newMode;
+    lastModeChange = Date.now();
+    arenaShrinkCount = 0;
+    ARENA_MIN_SIZE = 4000;
+    
+    let modeMessage = '';
+    switch(currentGameMode) {
+        case GAME_MODES.CLASSIC:
+            modeMessage = '🍽️ CLASSIC MODE - Normal gameplay';
+            break;
+        case GAME_MODES.SPEED:
+            modeMessage = '🏃 SPEED MODE - All players move 50% faster!';
+            break;
+        case GAME_MODES.HARDCORE:
+            modeMessage = '💀 HARDCORE MODE - Die faster, bots stronger!';
+            break;
+        case GAME_MODES.SHIELD:
+            modeMessage = '🛡️ SHIELD MODE - Everyone starts with shield!';
+            break;
+        case GAME_MODES.ARENA:
+            modeMessage = '🎯 ARENA MODE - The map shrinks over time!';
+            break;
+        case GAME_MODES.BOSS_RUSH:
+            modeMessage = '🐉 BOSS RUSH MODE - Bosses spawn every 3 minutes!';
+            break;
+    }
+    
+    io.emit('gameModeChange', { mode: currentGameMode, message: modeMessage });
+    io.emit('chatMessage', { username: 'System', message: `🎮 GAME MODE CHANGED: ${modeMessage}`, isSystem: true });
+    
+    // Arena mode: reset map size
+    if (currentGameMode === GAME_MODES.ARENA) {
+        MAP_WIDTH = 4000;
+        MAP_HEIGHT = 4000;
+        io.emit('mapSizeUpdate', { width: MAP_WIDTH, height: MAP_HEIGHT });
+    }
+    
+    // Boss Rush mode: spawn boss immediately
+    if (currentGameMode === GAME_MODES.BOSS_RUSH && !bossBot) {
+        spawnBossBot();
+    }
+}
+
+// Change mode every 5 minutes
+setInterval(() => {
+    changeGameMode();
+}, MODE_CHANGE_INTERVAL);
+
+// Arena mode shrink effect
+setInterval(() => {
+    if (currentGameMode === GAME_MODES.ARENA && arenaShrinkCount < 20) {
+        arenaShrinkCount++;
+        MAP_WIDTH = Math.max(500, MAP_WIDTH * 0.95);
+        MAP_HEIGHT = Math.max(500, MAP_HEIGHT * 0.95);
+        io.emit('mapSizeUpdate', { width: MAP_WIDTH, height: MAP_HEIGHT });
+        io.emit('chatMessage', { username: 'System', message: `🎯 Arena is shrinking! Map size: ${Math.floor(MAP_WIDTH)}x${Math.floor(MAP_HEIGHT)}`, isSystem: true });
+    }
+}, 30000);
+
 // Initialize game
 generateOrbs(600);
 for (let i = 0; i < 8; i++) generateBot();
@@ -406,9 +543,15 @@ setTimeout(() => {
     if (!bossBot) spawnBossBot();
 }, 180000);
 
-// Boss respawn every 10 minutes
+// Boss spawn interval
 setInterval(() => {
-    if (!bossBot) spawnBossBot();
+    if (!bossBot) {
+        if (currentGameMode === GAME_MODES.BOSS_RUSH) {
+            spawnBossBot();
+        } else {
+            spawnBossBot();
+        }
+    }
 }, BOSS_SPAWN_INTERVAL);
 
 // Boss despawn after 5 minutes
@@ -419,7 +562,7 @@ setInterval(() => {
     }
 }, 10000);
 
-// Orb respawn - KEEP MAP FULL
+// Orb respawn
 setInterval(() => {
     if (orbs.length < 400) {
         generateOrbs(80);
@@ -463,7 +606,11 @@ setInterval(() => {
         }
         
         let moveX = 0, moveY = 0;
-        const botSpeed = 3.5 * (bot.perks?.speedMultiplier || 1);
+        let botSpeed = 3.5 * (bot.perks?.speedMultiplier || 1);
+        
+        if (currentGameMode === GAME_MODES.SPEED) {
+            botSpeed *= 1.3;
+        }
         
         if (nearestPlayer && playerDist < 350) {
             if (bot.radius > nearestPlayer.radius + 10) {
@@ -519,10 +666,19 @@ setInterval(() => {
             const player = players[playerId];
             if (Math.hypot(bot.x - player.x, bot.y - player.y) < bot.radius + player.radius) {
                 if (bot.radius > player.radius && !player.isAdmin) {
-                    const gain = Math.floor((player.score / 3) + 100);
+                    let gain = Math.floor((player.score / 3) + 100);
+                    let lossPercent = 0.8;
+                    
+                    if (currentGameMode === GAME_MODES.HARDCORE) {
+                        lossPercent = 0.95;
+                        gain *= 1.5;
+                    } else if (currentGameMode === GAME_MODES.SHIELD) {
+                        lossPercent = 0.6;
+                    }
+                    
                     bot.score += gain;
                     bot.radius = Math.min(100, 18 + Math.floor(bot.score / 100));
-                    player.score = Math.floor(player.score / 5);
+                    player.score = Math.floor(player.score * (1 - lossPercent));
                     player.radius = Math.min(200, 20 + Math.floor(player.score / 50));
                     player.x = Math.random() * MAP_WIDTH;
                     player.y = Math.random() * MAP_HEIGHT;
@@ -534,7 +690,10 @@ setInterval(() => {
                     io.emit('deathMessage', { victimId: playerId, killerName: bot.username });
                     updateLeaderboard();
                 } else if (player.radius > bot.radius) {
-                    const gain = Math.floor((bot.score / 2) + 100) * (player.perks?.scoreMultiplier || 1);
+                    let gain = Math.floor((bot.score / 2) + 100) * (player.perks?.scoreMultiplier || 1);
+                    if (currentGameMode === GAME_MODES.HARDCORE) {
+                        gain *= 1.5;
+                    }
                     player.score += gain;
                     player.radius = Math.min(200, 20 + Math.floor(player.score / 50));
                     const newLevel = getLevel(player.score);
@@ -553,6 +712,7 @@ setInterval(() => {
 }, 100);
 
 io.on('connection', (socket) => {
+    socket.emit('gameModeChange', { mode: currentGameMode, message: `Current mode: ${currentGameMode}` });
     socket.emit('allTimeLeaderboard', allTimeTop10);
     if (bossBot) {
         socket.emit('bossSpawned', bossBot);
@@ -591,11 +751,19 @@ io.on('connection', (socket) => {
         
         const personalBest = getPersonalBest(username);
         
+        // Shield mode: start with shield active
+        let hasShield = false;
+        let shieldEndTime = 0;
+        if (currentGameMode === GAME_MODES.SHIELD) {
+            hasShield = true;
+            shieldEndTime = Date.now() + 10000; // 10 second shield
+        }
+        
         players[socket.id] = {
             id: socket.id, username: username, x: Math.random() * MAP_WIDTH, y: Math.random() * MAP_HEIGHT,
             radius: 20, score: 0, level: 1, title: '🍼 Newbie', perks: getPerks(1),
-            isAdmin: isAdmin, kills: 0, activePowerup: null, powerupEndTime: 0,
-            personalBest: personalBest, skin: skin
+            isAdmin: isAdmin, kills: 0, activePowerup: hasShield ? 'shield' : null, 
+            powerupEndTime: shieldEndTime, personalBest: personalBest, skin: skin
         };
         
         socket.emit('currentOrbs', orbs);
@@ -625,7 +793,13 @@ io.on('connection', (socket) => {
         let multiplier = 1;
         if (player.activePowerup === 'double' && Date.now() < player.powerupEndTime) multiplier = 2;
         
-        const points = Math.floor(orb.value * multiplier * (player.perks?.scoreMultiplier || 1));
+        let points = Math.floor(orb.value * multiplier * (player.perks?.scoreMultiplier || 1));
+        
+        // Hardcore mode: double points
+        if (currentGameMode === GAME_MODES.HARDCORE) {
+            points *= 2;
+        }
+        
         player.score += points;
         player.radius = Math.min(200, 20 + Math.floor(player.score / 50));
         
@@ -713,7 +887,13 @@ io.on('connection', (socket) => {
             const levelDiff = eater.level - target.level;
             const levelBonusPoints = Math.max(0, levelDiff * 50);
             
-            const gain = Math.floor((target.score / 2) + 100 + levelBonusPoints) * multiplier * (eater.perks?.scoreMultiplier || 1);
+            let gain = Math.floor((target.score / 2) + 100 + levelBonusPoints) * multiplier * (eater.perks?.scoreMultiplier || 1);
+            
+            // Hardcore mode: bonus points
+            if (currentGameMode === GAME_MODES.HARDCORE) {
+                gain *= 1.5;
+            }
+            
             eater.score += gain;
             eater.radius = Math.min(200, 20 + Math.floor(eater.score / 50));
             eater.kills = (eater.kills || 0) + 1;
@@ -732,7 +912,14 @@ io.on('connection', (socket) => {
                 socket.emit('personalBestUpdate', eater.personalBest);
             }
             
-            target.score = Math.floor(target.score / 5);
+            let lossPercent = 0.8;
+            if (currentGameMode === GAME_MODES.HARDCORE) {
+                lossPercent = 0.95;
+            } else if (currentGameMode === GAME_MODES.SHIELD) {
+                lossPercent = 0.6;
+            }
+            
+            target.score = Math.floor(target.score * (1 - lossPercent));
             target.radius = Math.min(200, 20 + Math.floor(target.score / 50));
             target.x = Math.random() * MAP_WIDTH;
             target.y = Math.random() * MAP_HEIGHT;
@@ -845,6 +1032,16 @@ io.on('connection', (socket) => {
         }
     });
 
+    socket.on('adminSetGameMode', (mode) => {
+        const admin = players[socket.id];
+        if (!admin || !admin.isAdmin) return;
+        if (GAME_MODES[mode.toUpperCase()]) {
+            currentGameMode = GAME_MODES[mode.toUpperCase()];
+            io.emit('gameModeChange', { mode: currentGameMode, message: `Admin set mode to ${currentGameMode}` });
+            io.emit('chatMessage', { username: 'System', message: `👑 Admin changed game mode to ${currentGameMode.toUpperCase()}!`, isSystem: true });
+        }
+    });
+
     socket.on('chatMessage', (data) => {
         const player = players[socket.id];
         if (!player) return;
@@ -853,7 +1050,21 @@ io.on('connection', (socket) => {
             const cmd = parts[0].toLowerCase();
             switch(cmd) {
                 case '/help':
-                    socket.emit('chatMessage', { username: 'System', message: 'Commands: /kick, /clear, /list, /orbs, /bots, /map, /perks, /top10', isSystem: true });
+                    socket.emit('chatMessage', { username: 'System', message: 'Commands: /kick, /clear, /list, /orbs, /bots, /map, /perks, /top10, /mode [classic/speed/hardcore/shield/arena/boss_rush]', isSystem: true });
+                    break;
+                case '/mode':
+                    if (parts.length < 2) {
+                        socket.emit('chatMessage', { username: 'System', message: 'Usage: /mode [classic/speed/hardcore/shield/arena/boss_rush]', isSystem: true });
+                        return;
+                    }
+                    const modeName = parts[1].toLowerCase();
+                    if (GAME_MODES[modeName.toUpperCase()]) {
+                        currentGameMode = GAME_MODES[modeName.toUpperCase()];
+                        io.emit('gameModeChange', { mode: currentGameMode, message: `Admin set mode to ${currentGameMode}` });
+                        io.emit('chatMessage', { username: 'System', message: `👑 Admin changed game mode to ${currentGameMode.toUpperCase()}!`, isSystem: true });
+                    } else {
+                        socket.emit('chatMessage', { username: 'System', message: `Unknown mode: ${modeName}. Available: classic, speed, hardcore, shield, arena, boss_rush`, isSystem: true });
+                    }
                     break;
                 case '/kick':
                     if (parts.length < 2) return;
@@ -924,13 +1135,12 @@ function updateLeaderboard() {
 
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, '0.0.0.0', () => {
-    console.log(`\n✅ RYZZ.io FIXED server running!`);
+    console.log(`\n✅ RYZZ.io GAME MODES server running!`);
+    console.log(`🎮 Game modes: Classic, Speed, Hardcore, Shield, Arena, Boss Rush`);
+    console.log(`🎲 Mode changes every 5 minutes automatically!`);
+    console.log(`👑 Admin can change mode with /mode [name]`);
     console.log(`🟡 Orbs: ${orbs.length} - Respawning constantly`);
-    console.log(`👑 Boss bot spawns every 10 minutes!`);
-    console.log(`🔒 Requires LEVEL 15 to damage the boss!`);
-    console.log(`💀 Boss has 100 HP - Defeat for 10M points!`);
+    console.log(`👑 Boss bot spawns regularly!`);
     console.log(`🛡️ Low level players CANNOT eat higher level players!`);
-    console.log(`⚡ Power-ups enabled!`);
-    console.log(`👑 Admin: ${ADMIN_NAME}`);
-    console.log(`🤖 Bots: ${Object.keys(bots).length}\n`);
+    console.log(`👑 Admin: ${ADMIN_NAME}\n`);
 });
