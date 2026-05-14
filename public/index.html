@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>RYZZ.io - Skin Shop</title>
+    <title>RYZZ.io - Skin Effects</title>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <style>
@@ -20,14 +20,13 @@
             font-family: Arial, sans-serif;
             overflow: hidden;
         }
-        /* WIDE JOIN SCREEN */
         #joinScreen {
             background: #111827;
             padding: 25px;
             border-radius: 20px;
             text-align: center;
             width: 90%;
-            max-width: 700px;
+            max-width: 750px;
             max-height: 90vh;
             overflow-y: auto;
         }
@@ -41,7 +40,6 @@
             margin-bottom: 20px;
             font-size: 36px;
         }
-        /* Two-column layout for username and password */
         .input-group {
             display: flex;
             gap: 15px;
@@ -63,9 +61,6 @@
         .input-group input:focus {
             border-color: #fbbf24;
         }
-        #joinScreen input::placeholder {
-            color: #6b7280;
-        }
         #joinBtn {
             background: #3b82f6;
             border: none;
@@ -86,7 +81,6 @@
             margin-top: 10px;
             font-size: 12px;
         }
-        /* Coin Display */
         .coin-display {
             background: linear-gradient(135deg, #fbbf24, #f59e0b);
             border-radius: 30px;
@@ -99,10 +93,6 @@
             color: #1f2937;
             font-size: 20px;
         }
-        .coin-display span:first-child {
-            font-size: 24px;
-        }
-        /* Skin Shop - Grid Layout */
         .shop-title {
             color: #fbbf24;
             font-size: 20px;
@@ -116,7 +106,7 @@
             grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
             gap: 12px;
             margin-top: 10px;
-            max-height: 400px;
+            max-height: 450px;
             overflow-y: auto;
             padding: 5px;
         }
@@ -126,7 +116,6 @@
             padding: 12px;
             text-align: center;
             border: 2px solid #374151;
-            cursor: pointer;
             transition: all 0.2s;
         }
         .skin-card:hover {
@@ -146,14 +135,15 @@
             height: 70px;
             border-radius: 50%;
             margin: 0 auto 8px;
+            position: relative;
         }
         .skin-name {
-            font-size: 13px;
+            font-size: 12px;
             color: white;
             font-weight: bold;
         }
         .skin-price {
-            font-size: 11px;
+            font-size: 10px;
             color: #fbbf24;
             margin: 5px 0;
         }
@@ -161,12 +151,12 @@
             background: #3b82f6;
             border: none;
             color: white;
-            padding: 5px 12px;
+            padding: 5px 10px;
             border-radius: 6px;
             cursor: pointer;
-            font-size: 11px;
-            margin: 3px;
-            width: 60px;
+            font-size: 10px;
+            margin: 2px;
+            width: 55px;
         }
         .skin-btn:hover {
             background: #2563eb;
@@ -174,17 +164,10 @@
         .skin-btn.owned-btn {
             background: #22c55e;
         }
-        .skin-btn.owned-btn:hover {
-            background: #16a34a;
-        }
         .skin-btn.equip-btn {
             background: #fbbf24;
             color: #1f2937;
         }
-        .skin-btn.equip-btn:hover {
-            background: #f59e0b;
-        }
-        /* Scrollbar */
         ::-webkit-scrollbar {
             width: 8px;
         }
@@ -196,7 +179,6 @@
             background: #fbbf24;
             border-radius: 4px;
         }
-        /* Game Screen */
         #gameContainer {
             position: relative;
             display: inline-block;
@@ -305,6 +287,21 @@
         .admin-btn-danger { background:#ef4444; }
         .admin-btn-gold { background:#fbbf24; color:#111827; }
         .player-select { background:#1f2937; border:1px solid #374151; color:white; padding:3px 5px; border-radius:4px; font-size:9px; width:100%; margin-bottom:5px; }
+        
+        /* Animation for effects */
+        @keyframes float {
+            0% { transform: translateY(0) translateX(0); opacity: 1; }
+            100% { transform: translateY(-30px) translateX(10px); opacity: 0; }
+        }
+        @keyframes pulse {
+            0% { transform: scale(1); opacity: 0.7; }
+            100% { transform: scale(1.5); opacity: 0; }
+        }
+        .particle {
+            position: fixed;
+            pointer-events: none;
+            z-index: 1000;
+        }
     </style>
 </head>
 <body>
@@ -316,14 +313,12 @@
         <input type="password" id="passwordInput" placeholder="Admin password" autocomplete="off">
     </div>
     
-    <!-- Coin Display -->
     <div class="coin-display">
         <span>🪙</span>
         <span id="coinAmount">0</span>
         <span>coins</span>
     </div>
     
-    <!-- Skin Shop -->
     <div class="shop-title">🎨 SKIN SHOP</div>
     <div class="skin-grid" id="skinGrid"></div>
     
@@ -394,37 +389,79 @@
 
 <script src="/socket.io/socket.io.js"></script>
 <script>
-    // ========== SKIN SYSTEM ==========
+    // ========== SKIN SYSTEM WITH EFFECTS ==========
     const SKINS = [
-        { id: 'classic', name: '🔵 Classic', color: '#3b82f6', price: 0, preview: '#3b82f6' },
-        { id: 'lava', name: '🔴 Lava', color: '#ef4444', price: 50, preview: '#ef4444' },
-        { id: 'toxic', name: '🟢 Toxic', color: '#22c55e', price: 100, preview: '#22c55e' },
-        { id: 'galaxy', name: '🟣 Galaxy', color: '#a855f7', price: 200, preview: '#a855f7' },
-        { id: 'lightning', name: '⚡ Lightning', color: '#fbbf24', price: 350, preview: '#fbbf24' },
-        { id: 'rainbow', name: '🌈 Rainbow', color: 'rainbow', price: 500, preview: 'linear-gradient(90deg,red,yellow,green,blue,purple)' },
-        { id: 'ice', name: '❄️ Ice', color: '#00ffff', price: 750, preview: '#00ffff' },
-        { id: 'inferno', name: '🔥 Inferno', color: '#ff6600', price: 1000, preview: '#ff6600' },
-        { id: 'reaper', name: '💀 Reaper', color: '#8b0000', price: 2500, preview: '#8b0000' },
-        { id: 'royal', name: '👑 Royal', color: '#ffd700', price: 5000, preview: '#ffd700' },
-        { id: 'cosmic', name: '🌌 Cosmic', color: 'cosmic', price: 10000, preview: 'linear-gradient(90deg,#4a00e0,#8e2de2)' },
-        { id: 'void', name: '∞ Void', color: '#1a1a2e', price: 25000, preview: '#1a1a2e' }
+        { id: 'classic', name: '🔵 Classic', color: '#3b82f6', price: 0, preview: '#3b82f6', effect: 'none' },
+        { id: 'lava', name: '🔴 Lava', color: '#ef4444', price: 50, preview: '#ef4444', effect: 'glow' },
+        { id: 'toxic', name: '🟢 Toxic', color: '#22c55e', price: 100, preview: '#22c55e', effect: 'bubble' },
+        { id: 'galaxy', name: '🟣 Galaxy', color: '#a855f7', price: 200, preview: '#a855f7', effect: 'sparkle' },
+        { id: 'lightning', name: '⚡ Lightning', color: '#fbbf24', price: 350, preview: '#fbbf24', effect: 'bolt' },
+        { id: 'rainbow', name: '🌈 Rainbow', color: 'rainbow', price: 500, preview: 'linear-gradient(90deg,red,yellow,green,blue,purple)', effect: 'rainbow' },
+        { id: 'ice', name: '❄️ Ice', color: '#00ffff', price: 750, preview: '#00ffff', effect: 'snow' },
+        { id: 'inferno', name: '🔥 Inferno', color: '#ff6600', price: 1000, preview: '#ff6600', effect: 'fire' },
+        { id: 'reaper', name: '💀 Reaper', color: '#8b0000', price: 2500, preview: '#8b0000', effect: 'skull' },
+        { id: 'royal', name: '👑 Royal', color: '#ffd700', price: 5000, preview: '#ffd700', effect: 'crown' },
+        { id: 'cosmic', name: '🌌 Cosmic', color: 'cosmic', price: 10000, preview: 'linear-gradient(90deg,#4a00e0,#8e2de2)', effect: 'nebula' },
+        { id: 'void', name: '∞ Void', color: '#1a1a2e', price: 25000, preview: '#1a1a2e', effect: 'dark' }
     ];
     
     let playerCoins = parseInt(localStorage.getItem('ryzzCoins')) || 0;
     let ownedSkins = JSON.parse(localStorage.getItem('ryzzOwnedSkins')) || ['classic'];
     let equippedSkin = localStorage.getItem('ryzzEquippedSkin') || 'classic';
+    let lastScoreMilestone = 0;
+    let particles = [];
+    let frame = 0;
     
     function saveCoinData() {
         localStorage.setItem('ryzzCoins', playerCoins);
         localStorage.setItem('ryzzOwnedSkins', JSON.stringify(ownedSkins));
         localStorage.setItem('ryzzEquippedSkin', equippedSkin);
-        document.getElementById('coinAmount').innerText = playerCoins;
+        const coinElement = document.getElementById('coinAmount');
+        if (coinElement) coinElement.innerText = playerCoins;
     }
     
     function addCoins(amount) {
         playerCoins += amount;
         saveCoinData();
+        showFloatingText(`+${amount} 🪙`, '#fbbf24');
         return playerCoins;
+    }
+    
+    function checkAndAwardCoins(score) {
+        const milestone = Math.floor(score / 1000);
+        if (milestone > lastScoreMilestone) {
+            const coinsEarned = milestone - lastScoreMilestone;
+            lastScoreMilestone = milestone;
+            if (coinsEarned > 0) {
+                addCoins(coinsEarned);
+                addChatMessage('System', `🪙 Earned ${coinsEarned} coin${coinsEarned > 1 ? 's' : ''}! Total: ${playerCoins} coins`, false, true);
+            }
+        }
+        return 0;
+    }
+    
+    function showFloatingText(text, color) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        div.style.position = 'fixed';
+        div.style.left = '50%';
+        div.style.top = '50%';
+        div.style.transform = 'translate(-50%, -50%)';
+        div.style.color = color;
+        div.style.fontSize = '24px';
+        div.style.fontWeight = 'bold';
+        div.style.textShadow = '0 0 5px black';
+        div.style.pointerEvents = 'none';
+        div.style.zIndex = '1000';
+        div.style.animation = 'float 1s ease-out forwards';
+        document.body.appendChild(div);
+        setTimeout(() => div.remove(), 1000);
+    }
+    
+    function addParticle(x, y, color) {
+        particles.push({
+            x: x, y: y, color: color, life: 1, size: 4 + Math.random() * 6
+        });
     }
     
     function buySkin(skinId) {
@@ -437,6 +474,7 @@
         ownedSkins.push(skinId);
         saveCoinData();
         renderSkinShop();
+        showFloatingText(`Purchased ${skin.name}!`, '#fbbf24');
         return true;
     }
     
@@ -448,12 +486,17 @@
         return true;
     }
     
-    function getSkinColor(level, skinId) {
+    function getSkinColor(skinId) {
         const skin = SKINS.find(s => s.id === skinId);
         if (!skin) return '#3b82f6';
         if (skin.color === 'rainbow') return 'rainbow';
         if (skin.color === 'cosmic') return 'cosmic';
         return skin.color;
+    }
+    
+    function getSkinEffect(skinId) {
+        const skin = SKINS.find(s => s.id === skinId);
+        return skin ? skin.effect : 'none';
     }
     
     function renderSkinShop() {
@@ -565,7 +608,6 @@
     let collectingOrbIds = new Set();
     let lastLevel = 1;
     
-    // DOM elements
     const joinScreen = document.getElementById('joinScreen');
     const gameScreen = document.getElementById('gameScreen');
     const usernameInput = document.getElementById('usernameInput');
@@ -620,14 +662,6 @@
         if (score > 0) parts.push(`💰+${score}%`);
         if (range > 0) parts.push(`🎯+${range}%`);
         return parts.join(' ');
-    }
-    
-    function getCellColor(level, skinId) {
-        const skin = SKINS.find(s => s.id === skinId);
-        if (!skin) return '#3b82f6';
-        if (skin.color === 'rainbow') return 'rainbow';
-        if (skin.color === 'cosmic') return 'cosmic';
-        return skin.color;
     }
     
     function updateSizeDisplay(radius) {
@@ -761,6 +795,7 @@
             if (myPlayer) {
                 movePlayer();
                 checkCollisions();
+                updateParticles();
                 draw();
             }
             requestAnimationFrame(gameLoop);
@@ -773,6 +808,26 @@
             } else { activePowerupSpan.innerHTML = 'None'; }
         }, 100);
     };
+    
+    function updateParticles() {
+        for (let i = particles.length - 1; i >= 0; i--) {
+            particles[i].life -= 0.02;
+            if (particles[i].life <= 0) {
+                particles.splice(i, 1);
+            }
+        }
+    }
+    
+    function drawParticles() {
+        for (const p of particles) {
+            ctx.globalAlpha = p.life;
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+            ctx.fillStyle = p.color;
+            ctx.fill();
+        }
+        ctx.globalAlpha = 1;
+    }
     
     // Socket events
     socket.on('allTimeLeaderboard', (leaderboard) => {
@@ -860,17 +915,26 @@
         }
         if (data.id === myId) {
             if (data.score > currentScore) {
+                const oldScore = currentScore;
                 currentScore = data.score;
                 scoreElement.innerText = formatScore(currentScore);
+                
+                checkAndAwardCoins(currentScore);
+                
                 if (currentScore > personalBest) {
                     personalBest = currentScore;
                     localStorage.setItem('ryzzPersonalBest', personalBest);
                     bestElement.innerText = formatScore(personalBest);
                     addChatMessage('System', `🏆 NEW PERSONAL BEST! ${formatScore(personalBest)}`, false, true);
-                    const coinsEarned = Math.floor(currentScore / 1000);
-                    if (coinsEarned > 0) {
-                        addCoins(coinsEarned);
-                        addChatMessage('System', `🪙 Earned ${coinsEarned} coins for high score!`, false, true);
+                    showFloatingText('NEW RECORD! 🏆', '#fbbf24');
+                }
+                
+                // Particle effect on score increase
+                if (Math.floor(currentScore / 1000) > Math.floor(oldScore / 1000)) {
+                    const myScreenX = (myPlayer.x - cameraX) * zoom;
+                    const myScreenY = (myPlayer.y - cameraY) * zoom;
+                    for (let i = 0; i < 20; i++) {
+                        addParticle(myScreenX + (Math.random() - 0.5) * 50, myScreenY + (Math.random() - 0.5) * 50, '#fbbf24');
                     }
                 }
             }
@@ -885,6 +949,7 @@
                 levelTitleElement.innerText = data.title;
                 perksElement.innerHTML = formatPerks(data.perks);
                 addChatMessage('System', `🎉 LEVEL UP! You reached ${data.title} (Level ${data.level})!`, false, true);
+                showFloatingText(`LEVEL ${data.level}! 🎉`, '#22c55e');
             } else if (data.perks) { currentPerks = data.perks; perksElement.innerHTML = formatPerks(data.perks); }
             if (data.activePowerup !== undefined) { activePowerup = data.activePowerup; powerupEndTime = data.powerupEndTime; }
         }
@@ -952,6 +1017,13 @@
                 currentScore += orb.value;
                 scoreElement.innerText = formatScore(currentScore);
                 if (myPlayer) myPlayer.score = currentScore;
+                if (orb.value >= 350) {
+                    const myScreenX = (myPlayer.x - cameraX) * zoom;
+                    const myScreenY = (myPlayer.y - cameraY) * zoom;
+                    for (let p = 0; p < 15; p++) {
+                        addParticle(myScreenX + (Math.random() - 0.5) * 40, myScreenY + (Math.random() - 0.5) * 40, '#fbbf24');
+                    }
+                }
                 break;
             }
         }
@@ -961,6 +1033,11 @@
                 socket.emit('collectPowerup', powerup.id);
                 powerups.splice(i, 1);
                 addChatMessage('System', `⚡ You got a ${powerup.name}!`, false, true);
+                const myScreenX = (myPlayer.x - cameraX) * zoom;
+                const myScreenY = (myPlayer.y - cameraY) * zoom;
+                for (let p = 0; p < 20; p++) {
+                    addParticle(myScreenX + (Math.random() - 0.5) * 50, myScreenY + (Math.random() - 0.5) * 50, powerup.color);
+                }
                 break;
             }
         }
@@ -974,6 +1051,11 @@
                     killsElement.innerText = kills;
                     socket.emit('eatPlayer', id);
                     addChatMessage('System', `🍽️ You ate ${other.username}! (${kills} kills)`, false, true);
+                    const myScreenX = (myPlayer.x - cameraX) * zoom;
+                    const myScreenY = (myPlayer.y - cameraY) * zoom;
+                    for (let p = 0; p < 25; p++) {
+                        addParticle(myScreenX + (Math.random() - 0.5) * 60, myScreenY + (Math.random() - 0.5) * 60, '#ff4444');
+                    }
                 } else if (other.radius > myPlayer.radius) {
                     socket.emit('eatPlayer', myId);
                     myPlayer.x = Math.random() * (MAP_WIDTH - 400) + 200;
@@ -1093,7 +1175,7 @@
             }
         }
         
-        // Draw my player
+        // Draw my player with skin effects
         const myScreenX = (myPlayer.x - cameraX) * zoom;
         const myScreenY = (myPlayer.y - cameraY) * zoom;
         const myRadius = myPlayer.radius * zoom;
@@ -1110,7 +1192,9 @@
             ctx.stroke();
         }
         
-        const myColor = getCellColor(currentLevel, equippedSkin);
+        const currentSkinEffect = getSkinEffect(equippedSkin);
+        const myColor = getSkinColor(equippedSkin);
+        
         if (myColor === 'rainbow') {
             const gradient = ctx.createLinearGradient(myScreenX - myRadius, myScreenY - myRadius, myScreenX + myRadius, myScreenY + myRadius);
             gradient.addColorStop(0, '#ff0000');
@@ -1132,6 +1216,49 @@
         ctx.strokeStyle = '#ffffff';
         ctx.lineWidth = 3 * zoom;
         ctx.stroke();
+        
+        // Skin effect particles
+        frame++;
+        if (currentSkinEffect === 'sparkle' && frame % 10 === 0) {
+            for (let i = 0; i < 3; i++) {
+                addParticle(myScreenX + (Math.random() - 0.5) * myRadius * 1.5, myScreenY + (Math.random() - 0.5) * myRadius * 1.5, '#fbbf24');
+            }
+        }
+        if (currentSkinEffect === 'glow') {
+            ctx.shadowBlur = 15 * zoom;
+            ctx.shadowColor = myColor;
+            ctx.fill();
+            ctx.shadowBlur = 0;
+        }
+        if (currentSkinEffect === 'fire' && frame % 8 === 0) {
+            for (let i = 0; i < 5; i++) {
+                addParticle(myScreenX + (Math.random() - 0.5) * myRadius, myScreenY + Math.random() * myRadius, '#ff6600');
+            }
+        }
+        if (currentSkinEffect === 'ice' && frame % 12 === 0) {
+            for (let i = 0; i < 3; i++) {
+                addParticle(myScreenX + (Math.random() - 0.5) * myRadius, myScreenY + (Math.random() - 0.5) * myRadius, '#00ffff');
+            }
+        }
+        if (currentSkinEffect === 'dark') {
+            ctx.shadowBlur = 20 * zoom;
+            ctx.shadowColor = '#000000';
+            ctx.fill();
+            ctx.shadowBlur = 0;
+            for (let i = 0; i < 2; i++) {
+                addParticle(myScreenX + (Math.random() - 0.5) * myRadius, myScreenY + (Math.random() - 0.5) * myRadius, '#1a1a2e');
+            }
+        }
+        if (currentSkinEffect === 'nebula' && frame % 15 === 0) {
+            for (let i = 0; i < 4; i++) {
+                addParticle(myScreenX + (Math.random() - 0.5) * myRadius * 1.2, myScreenY + (Math.random() - 0.5) * myRadius * 1.2, '#a855f7');
+            }
+        }
+        if (currentSkinEffect === 'crown') {
+            ctx.fillStyle = '#ffd700';
+            ctx.font = `${Math.max(12, myRadius * 0.4)}px Arial`;
+            ctx.fillText('👑', myScreenX - 10 * zoom, myScreenY - myRadius * 0.8);
+        }
         
         ctx.fillStyle = '#ffffff';
         ctx.font = `bold ${Math.max(12, myRadius * 0.5)}px Arial`;
@@ -1167,6 +1294,8 @@
             ctx.lineWidth = 2 * zoom;
             ctx.stroke();
         }
+        
+        drawParticles();
         
         for (const id in players) {
             if (id === myId) continue;
