@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>RYZZ.io - Engaging</title>
+    <title>RYZZ.io - Fixed</title>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <style>
@@ -117,89 +117,74 @@
             font-weight: bold;
             border: 1px solid #fbbf24;
         }
+        /* LARGER RICHEST LEADERBOARD */
         .leaderboard-container {
-            background: #1f2937;
-            border-radius: 12px;
-            padding: 10px;
-            margin: 10px 0;
-            border: 1px solid #374151;
+            background: linear-gradient(135deg, #1f2937, #111827);
+            border-radius: 16px;
+            padding: 15px;
+            margin: 15px 0;
+            border: 2px solid #fbbf24;
         }
         .leaderboard-container h3 {
             color: #fbbf24;
-            font-size: 16px;
-            margin-bottom: 10px;
+            font-size: 20px;
+            margin-bottom: 12px;
             text-align: center;
+            text-shadow: 0 0 5px #fbbf24;
         }
         .leaderboard-list {
-            max-height: 200px;
+            max-height: 250px;
             overflow-y: auto;
         }
         .leaderboard-item {
             display: flex;
             justify-content: space-between;
-            padding: 5px 10px;
+            align-items: center;
+            padding: 8px 12px;
             border-bottom: 1px solid #374151;
-            font-size: 12px;
+            font-size: 14px;
             color: white;
         }
         .leaderboard-item.top-1 {
+            background: linear-gradient(90deg, #ffd70020, #ffd70008);
             color: #ffd700;
             font-weight: bold;
+            font-size: 16px;
         }
         .leaderboard-item.top-2 {
+            background: linear-gradient(90deg, #c0c0c020, #c0c0c008);
             color: #c0c0c0;
+            font-weight: bold;
         }
         .leaderboard-item.top-3 {
+            background: linear-gradient(90deg, #cd7f3220, #cd7f3208);
             color: #cd7f32;
+            font-weight: bold;
         }
-        .challenges-container {
-            background: #1f2937;
-            border-radius: 12px;
-            padding: 10px;
-            margin: 10px 0;
-            border: 1px solid #374151;
-        }
-        .challenges-container h3 {
-            color: #fbbf24;
-            font-size: 14px;
-            margin-bottom: 8px;
-        }
-        .challenge-item {
+        /* SKIN SHOP TOGGLE */
+        .shop-header {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            padding: 5px;
-            background: #111827;
-            margin: 5px 0;
-            border-radius: 6px;
-            font-size: 11px;
-        }
-        .challenge-completed {
-            color: #22c55e;
-        }
-        .daily-bonus {
-            background: linear-gradient(135deg, #3b82f6, #2563eb);
-            border-radius: 12px;
-            padding: 10px;
-            margin: 10px 0;
-            text-align: center;
-            cursor: pointer;
-            transition: transform 0.2s;
-        }
-        .daily-bonus:hover {
-            transform: scale(1.02);
-        }
-        .daily-bonus.claimed {
-            background: #374151;
-            cursor: default;
+            margin: 15px 0 10px;
+            border-top: 1px solid #374151;
+            padding-top: 10px;
         }
         .shop-title {
             color: #fbbf24;
             font-size: 18px;
-            margin: 15px 0 10px;
-            text-align: center;
-            border-top: 1px solid #374151;
-            padding-top: 10px;
+        }
+        .toggle-shop-btn {
+            background: #3b82f6;
+            border: none;
+            color: white;
+            padding: 5px 12px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+        .toggle-shop-btn:hover {
+            background: #2563eb;
         }
         .skin-grid {
             display: grid;
@@ -209,6 +194,10 @@
             max-height: 300px;
             overflow-y: auto;
             padding: 5px;
+            transition: all 0.3s ease;
+        }
+        .skin-grid.collapsed {
+            display: none;
         }
         .skin-card {
             background: #1f2937;
@@ -263,6 +252,44 @@
         }
         .skin-btn.owned-btn {
             background: #22c55e;
+        }
+        .challenges-container {
+            background: #1f2937;
+            border-radius: 12px;
+            padding: 10px;
+            margin: 10px 0;
+            border: 1px solid #374151;
+        }
+        .challenges-container h3 {
+            color: #fbbf24;
+            font-size: 14px;
+            margin-bottom: 8px;
+        }
+        .challenge-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 5px;
+            background: #111827;
+            margin: 5px 0;
+            border-radius: 6px;
+            font-size: 11px;
+        }
+        .daily-bonus {
+            background: linear-gradient(135deg, #3b82f6, #2563eb);
+            border-radius: 12px;
+            padding: 10px;
+            margin: 10px 0;
+            text-align: center;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+        .daily-bonus:hover {
+            transform: scale(1.02);
+        }
+        .daily-bonus.claimed {
+            background: #374151;
+            cursor: default;
         }
         ::-webkit-scrollbar {
             width: 6px;
@@ -429,14 +456,18 @@
         <div id="challengesList"></div>
     </div>
     
-    <!-- Richest Leaderboard -->
+    <!-- LARGER RICHEST LEADERBOARD -->
     <div class="leaderboard-container">
         <h3>🏆 RICHEST PLAYERS 🏆</h3>
         <div id="richestLeaderboard" class="leaderboard-list"></div>
     </div>
     
-    <div class="shop-title">🎨 SKIN SHOP</div>
-    <div class="skin-grid" id="skinGrid"></div>
+    <!-- SKIN SHOP WITH TOGGLE -->
+    <div class="shop-header">
+        <div class="shop-title">🎨 SKIN SHOP</div>
+        <button id="toggleShopBtn" class="toggle-shop-btn">▼ HIDE</button>
+    </div>
+    <div id="skinGrid" class="skin-grid"></div>
     
     <button id="joinBtn">🚀 JOIN GAME</button>
     <div id="errorMsg"></div>
@@ -514,6 +545,23 @@
         return coins.toString();
     }
     
+    // ========== SKIN SHOP TOGGLE ==========
+    let skinShopVisible = localStorage.getItem('skinShopVisible') !== 'false';
+    
+    function toggleSkinShop() {
+        skinShopVisible = !skinShopVisible;
+        localStorage.setItem('skinShopVisible', skinShopVisible);
+        const skinGrid = document.getElementById('skinGrid');
+        const toggleBtn = document.getElementById('toggleShopBtn');
+        if (skinShopVisible) {
+            skinGrid.classList.remove('collapsed');
+            toggleBtn.innerHTML = '▼ HIDE';
+        } else {
+            skinGrid.classList.add('collapsed');
+            toggleBtn.innerHTML = '▶ SHOW';
+        }
+    }
+    
     // ========== DAILY STREAK SYSTEM ==========
     let streakDay = parseInt(localStorage.getItem('ryzzStreakDay')) || 1;
     let lastClaimDate = localStorage.getItem('ryzzLastClaim');
@@ -528,6 +576,7 @@
             dailyBonusDiv.classList.add('claimed');
             dailyBonusDiv.innerHTML = `✅ Daily bonus claimed! Come back tomorrow for ${formatCoins(bonusAmount)} coins!`;
             dailyBonusDiv.style.cursor = 'default';
+            dailyBonusDiv.onclick = null;
         } else {
             dailyBonusDiv.classList.remove('claimed');
             dailyBonusDiv.innerHTML = `🎁 DAY ${streakDay} BONUS - Claim ${formatCoins(bonusAmount)} coins!`;
@@ -607,7 +656,6 @@
         for (const challenge of dailyChallenges) {
             const div = document.createElement('div');
             div.className = 'challenge-item';
-            const progressPercent = (challenge.progress / challenge.target) * 100;
             div.innerHTML = `
                 <span style="flex:1">${challenge.name}</span>
                 <span style="width:60px; text-align:center">${challenge.progress}/${challenge.target}</span>
@@ -667,7 +715,7 @@
             if (playerCoins > richestPlayers[existingIndex].coins) {
                 richestPlayers[existingIndex].coins = playerCoins;
             }
-        } else {
+        } else if (playerCoins > 0) {
             richestPlayers.push({ username: username, coins: playerCoins });
         }
         
@@ -692,7 +740,7 @@
                 </div>`;
             }
             if (richestPlayers.length === 0) {
-                html = '<div style="color:#666; text-align:center">Be the richest!</div>';
+                html = '<div style="color:#666; text-align:center; padding:20px;">Be the richest player!</div>';
             }
             container.innerHTML = html;
         }
@@ -992,6 +1040,16 @@
     renderChallenges();
     updateRichestLeaderboard();
     
+    // Setup toggle button
+    const toggleBtn = document.getElementById('toggleShopBtn');
+    if (toggleBtn) {
+        toggleBtn.onclick = toggleSkinShop;
+        if (!skinShopVisible) {
+            document.getElementById('skinGrid').classList.add('collapsed');
+            toggleBtn.innerHTML = '▶ SHOW';
+        }
+    }
+    
     function formatScore(score) {
         if (score >= 1_000_000_000) return (score / 1_000_000_000).toFixed(1) + 'B';
         if (score >= 1_000_000) return (score / 1_000_000).toFixed(1) + 'M';
@@ -1144,10 +1202,14 @@
         });
     }
     
+    // FIXED JOIN BUTTON
     joinBtn.onclick = () => {
         const username = usernameInput.value.trim();
         const password = passwordInput.value;
-        if (username === '') { errorMsg.innerText = 'Please enter a username'; return; }
+        if (username === '') { 
+            errorMsg.innerText = 'Please enter a username'; 
+            return; 
+        }
         
         joinScreen.classList.add('hidden');
         gameScreen.classList.remove('hidden');
@@ -1588,7 +1650,6 @@
         ctx.lineWidth = 3 * zoom;
         ctx.stroke();
         
-        // Skin effects
         frame++;
         const currentSkin = SKINS.find(s => s.id === equippedSkin);
         if (currentSkin && currentSkin.effect === 'glow') {
