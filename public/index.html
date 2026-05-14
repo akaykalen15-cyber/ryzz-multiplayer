@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>RYZZ.io - Skin Effects</title>
+    <title>RYZZ.io - Coin Prefix</title>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <style>
@@ -288,19 +288,9 @@
         .admin-btn-gold { background:#fbbf24; color:#111827; }
         .player-select { background:#1f2937; border:1px solid #374151; color:white; padding:3px 5px; border-radius:4px; font-size:9px; width:100%; margin-bottom:5px; }
         
-        /* Animation for effects */
         @keyframes float {
             0% { transform: translateY(0) translateX(0); opacity: 1; }
             100% { transform: translateY(-30px) translateX(10px); opacity: 0; }
-        }
-        @keyframes pulse {
-            0% { transform: scale(1); opacity: 0.7; }
-            100% { transform: scale(1.5); opacity: 0; }
-        }
-        .particle {
-            position: fixed;
-            pointer-events: none;
-            z-index: 1000;
         }
     </style>
 </head>
@@ -389,7 +379,15 @@
 
 <script src="/socket.io/socket.io.js"></script>
 <script>
-    // ========== SKIN SYSTEM WITH EFFECTS ==========
+    // ========== COIN PREFIX FUNCTION ==========
+    function formatCoins(coins) {
+        if (coins >= 1_000_000_000) return (coins / 1_000_000_000).toFixed(1) + 'B';
+        if (coins >= 1_000_000) return (coins / 1_000_000).toFixed(1) + 'M';
+        if (coins >= 1_000) return (coins / 1_000).toFixed(1) + 'K';
+        return coins.toString();
+    }
+    
+    // ========== SKIN SYSTEM ==========
     const SKINS = [
         { id: 'classic', name: '🔵 Classic', color: '#3b82f6', price: 0, preview: '#3b82f6', effect: 'none' },
         { id: 'lava', name: '🔴 Lava', color: '#ef4444', price: 50, preview: '#ef4444', effect: 'glow' },
@@ -417,13 +415,13 @@
         localStorage.setItem('ryzzOwnedSkins', JSON.stringify(ownedSkins));
         localStorage.setItem('ryzzEquippedSkin', equippedSkin);
         const coinElement = document.getElementById('coinAmount');
-        if (coinElement) coinElement.innerText = playerCoins;
+        if (coinElement) coinElement.innerText = formatCoins(playerCoins);
     }
     
     function addCoins(amount) {
         playerCoins += amount;
         saveCoinData();
-        showFloatingText(`+${amount} 🪙`, '#fbbf24');
+        showFloatingText(`+${formatCoins(amount)} 🪙`, '#fbbf24');
         return playerCoins;
     }
     
@@ -434,7 +432,7 @@
             lastScoreMilestone = milestone;
             if (coinsEarned > 0) {
                 addCoins(coinsEarned);
-                addChatMessage('System', `🪙 Earned ${coinsEarned} coin${coinsEarned > 1 ? 's' : ''}! Total: ${playerCoins} coins`, false, true);
+                addChatMessage('System', `🪙 Earned ${coinsEarned} coin${coinsEarned > 1 ? 's' : ''}! Total: ${formatCoins(playerCoins)} coins`, false, true);
             }
         }
         return 0;
@@ -494,11 +492,6 @@
         return skin.color;
     }
     
-    function getSkinEffect(skinId) {
-        const skin = SKINS.find(s => s.id === skinId);
-        return skin ? skin.effect : 'none';
-    }
-    
     function renderSkinShop() {
         const grid = document.getElementById('skinGrid');
         if (!grid) return;
@@ -528,7 +521,7 @@
             
             const price = document.createElement('div');
             price.className = 'skin-price';
-            price.innerText = owned ? 'OWNED' : `🪙 ${skin.price}`;
+            price.innerText = owned ? 'OWNED' : `🪙 ${formatCoins(skin.price)}`;
             
             const btnContainer = document.createElement('div');
             
@@ -541,7 +534,7 @@
                     if (buySkin(skin.id)) {
                         alert(`Purchased ${skin.name}!`);
                     } else {
-                        alert(`Not enough coins! Need ${skin.price} coins.`);
+                        alert(`Not enough coins! Need ${formatCoins(skin.price)} coins.`);
                     }
                 };
                 btnContainer.appendChild(buyBtn);
@@ -635,7 +628,7 @@
     
     bestElement.innerText = formatScore(personalBest);
     renderSkinShop();
-    document.getElementById('coinAmount').innerText = playerCoins;
+    document.getElementById('coinAmount').innerText = formatCoins(playerCoins);
     
     function formatScore(score) {
         if (score >= 1_000_000_000) return (score / 1_000_000_000).toFixed(1) + 'B';
@@ -662,6 +655,14 @@
         if (score > 0) parts.push(`💰+${score}%`);
         if (range > 0) parts.push(`🎯+${range}%`);
         return parts.join(' ');
+    }
+    
+    function getCellColor(skinId) {
+        const skin = SKINS.find(s => s.id === skinId);
+        if (!skin) return '#3b82f6';
+        if (skin.color === 'rainbow') return 'rainbow';
+        if (skin.color === 'cosmic') return 'cosmic';
+        return skin.color;
     }
     
     function updateSizeDisplay(radius) {
@@ -929,7 +930,6 @@
                     showFloatingText('NEW RECORD! 🏆', '#fbbf24');
                 }
                 
-                // Particle effect on score increase
                 if (Math.floor(currentScore / 1000) > Math.floor(oldScore / 1000)) {
                     const myScreenX = (myPlayer.x - cameraX) * zoom;
                     const myScreenY = (myPlayer.y - cameraY) * zoom;
@@ -1103,7 +1103,6 @@
             ctx.beginPath(); ctx.moveTo(0, screenY); ctx.lineTo(canvas.width, screenY); ctx.stroke();
         }
         
-        // Draw power-ups
         for (const powerup of powerups) {
             const screenX = (powerup.x - cameraX) * zoom;
             const screenY = (powerup.y - cameraY) * zoom;
@@ -1122,7 +1121,6 @@
             }
         }
         
-        // Draw orbs
         for (const orb of orbs) {
             const screenX = (orb.x - cameraX) * zoom;
             const screenY = (orb.y - cameraY) * zoom;
@@ -1140,7 +1138,6 @@
             }
         }
         
-        // Draw other players
         for (const id in players) {
             if (id === myId) continue;
             const p = players[id];
@@ -1175,7 +1172,6 @@
             }
         }
         
-        // Draw my player with skin effects
         const myScreenX = (myPlayer.x - cameraX) * zoom;
         const myScreenY = (myPlayer.y - cameraY) * zoom;
         const myRadius = myPlayer.radius * zoom;
@@ -1192,8 +1188,7 @@
             ctx.stroke();
         }
         
-        const currentSkinEffect = getSkinEffect(equippedSkin);
-        const myColor = getSkinColor(equippedSkin);
+        const myColor = getCellColor(equippedSkin);
         
         if (myColor === 'rainbow') {
             const gradient = ctx.createLinearGradient(myScreenX - myRadius, myScreenY - myRadius, myScreenX + myRadius, myScreenY + myRadius);
@@ -1217,47 +1212,45 @@
         ctx.lineWidth = 3 * zoom;
         ctx.stroke();
         
-        // Skin effect particles
+        // Skin effects
         frame++;
-        if (currentSkinEffect === 'sparkle' && frame % 10 === 0) {
-            for (let i = 0; i < 3; i++) {
-                addParticle(myScreenX + (Math.random() - 0.5) * myRadius * 1.5, myScreenY + (Math.random() - 0.5) * myRadius * 1.5, '#fbbf24');
-            }
-        }
-        if (currentSkinEffect === 'glow') {
+        const currentSkin = SKINS.find(s => s.id === equippedSkin);
+        if (currentSkin && currentSkin.effect === 'glow') {
             ctx.shadowBlur = 15 * zoom;
             ctx.shadowColor = myColor;
             ctx.fill();
             ctx.shadowBlur = 0;
         }
-        if (currentSkinEffect === 'fire' && frame % 8 === 0) {
+        if (currentSkin && currentSkin.effect === 'fire' && frame % 8 === 0) {
             for (let i = 0; i < 5; i++) {
                 addParticle(myScreenX + (Math.random() - 0.5) * myRadius, myScreenY + Math.random() * myRadius, '#ff6600');
             }
         }
-        if (currentSkinEffect === 'ice' && frame % 12 === 0) {
+        if (currentSkin && currentSkin.effect === 'snow' && frame % 12 === 0) {
             for (let i = 0; i < 3; i++) {
                 addParticle(myScreenX + (Math.random() - 0.5) * myRadius, myScreenY + (Math.random() - 0.5) * myRadius, '#00ffff');
             }
         }
-        if (currentSkinEffect === 'dark') {
+        if (currentSkin && currentSkin.effect === 'dark') {
             ctx.shadowBlur = 20 * zoom;
             ctx.shadowColor = '#000000';
             ctx.fill();
             ctx.shadowBlur = 0;
-            for (let i = 0; i < 2; i++) {
-                addParticle(myScreenX + (Math.random() - 0.5) * myRadius, myScreenY + (Math.random() - 0.5) * myRadius, '#1a1a2e');
+        }
+        if (currentSkin && currentSkin.effect === 'sparkle' && frame % 10 === 0) {
+            for (let i = 0; i < 3; i++) {
+                addParticle(myScreenX + (Math.random() - 0.5) * myRadius * 1.5, myScreenY + (Math.random() - 0.5) * myRadius * 1.5, '#fbbf24');
             }
         }
-        if (currentSkinEffect === 'nebula' && frame % 15 === 0) {
-            for (let i = 0; i < 4; i++) {
-                addParticle(myScreenX + (Math.random() - 0.5) * myRadius * 1.2, myScreenY + (Math.random() - 0.5) * myRadius * 1.2, '#a855f7');
-            }
-        }
-        if (currentSkinEffect === 'crown') {
+        if (currentSkin && currentSkin.effect === 'crown') {
             ctx.fillStyle = '#ffd700';
             ctx.font = `${Math.max(12, myRadius * 0.4)}px Arial`;
             ctx.fillText('👑', myScreenX - 10 * zoom, myScreenY - myRadius * 0.8);
+        }
+        if (currentSkin && currentSkin.effect === 'nebula' && frame % 15 === 0) {
+            for (let i = 0; i < 4; i++) {
+                addParticle(myScreenX + (Math.random() - 0.5) * myRadius * 1.2, myScreenY + (Math.random() - 0.5) * myRadius * 1.2, '#a855f7');
+            }
         }
         
         ctx.fillStyle = '#ffffff';
